@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage and test output
+coverage/
+.nyc_output/
+*.lcov
+
+# Build and cache
+dist/
+build/
+.cache/
+.npm
+.eslintcache
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node-RED local runtime while testing the package
+flows.json
+flows_cred.json
+flows.json.backup
+.nodes.json
+.config.runtime.json
+.config.nodes.json
+.config.flows.json
+.config.users.json
+.config.projects.json
+.context/
+.storage/
+settings.js
+!examples/settings.example.js
+
+# npm pack output
+*.tgz

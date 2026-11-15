@@ -1,0 +1,79 @@
+{
+  "name": "node-red-contrib-ai-agents",
+  "version": "1.0.0",
+  "description": "Visual AI agents for Node-RED: Agent, Tool and Tool Return nodes built on LangChain.js and LangGraph, with DeepSeek, OpenAI, Anthropic, Gemini and OpenRouter models, conversation memory and MCP tools",
+  "license": "Apache-2.0",
+  "author": "Asiel Hernandez Valdes <asielhv@gmail.com>",
+  "homepage": "https://github.com/asielh1n1/mode-red-contrib-ai-agent#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asielh1n1/mode-red-contrib-ai-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/asielh1n1/mode-red-contrib-ai-agent/issues"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lib/",
+    "examples/",
+    "icons/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.9.0"
+  },
+  "keywords": [
+    "node-red",
+    "node-red-contrib",
+    "ai",
+    "agent",
+    "agents",
+    "llm",
+    "langchain",
+    "langgraph",
+    "tool-calling",
+    "openai",
+    "anthropic",
+    "gemini",
+    "openrouter",
+    "deepseek",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "scripts": {
+    "test": "node --test --test-concurrency=1",
+    "prepublishOnly": "npm test"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^1.6.4",
+    "@langchain/core": "1.4.0",
+    "@langchain/deepseek": "1.1.25",
+    "@langchain/google-genai": "^2.3.6",
+    "@langchain/langgraph": "1.7.3",
+    "@langchain/langgraph-checkpoint": "1.2.2",
+    "@langchain/langgraph-checkpoint-postgres": "1.1.2",
+    "@langchain/langgraph-checkpoint-redis": "^1.1.1",
+    "@langchain/mcp-adapters": "^2.0.3",
+    "@langchain/openai": "^1.8.4",
+    "langchain": "1.6.5",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "node-red": "5.0.9"
+  },
+  "node-red": {
+    "version": ">=5.0.0",
+    "nodes": {
+      "ai-agent-model": "lib/model.js",
+      "ai-agent-memory": "lib/memory.js",
+      "ai-tool": "lib/tool.js",
+      "ai-tool-return": "lib/tool-return.js",
+      "mcp-client": "lib/mcp-client.js",
+      "mcp-client-tool": "lib/mcp-client-tool.js",
+      "ai-agent": "lib/agent.js"
+    }
+  }
+}

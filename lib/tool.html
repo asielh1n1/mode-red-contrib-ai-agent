@@ -1,0 +1,219 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        const NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
+        const PARAM_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+        const TYPES = [
+            { value: 'string', label: 'text' },
+            { value: 'number', label: 'number' },
+            { value: 'integer', label: 'whole number' },
+            { value: 'boolean', label: 'true / false' },
+            { value: 'array', label: 'list' },
+            { value: 'object', label: 'object' }
+        ];
+
+        // The dialog edits a list of parameters; the stored value stays a JSON Schema so
+        // the runtime (and any flow exported to another Node-RED) keeps working as before.
+        function schemaToParams(schema) {
+            if (!schema || typeof schema !== 'object') {
+                return [];
+            }
+            const properties = schema.properties || {};
+            const required = Array.isArray(schema.required) ? schema.required : [];
+            return Object.keys(properties).map(function (name) {
+                const property = properties[name] || {};
+                const type = Array.isArray(property.type) ? property.type[0] : property.type || 'string';
+                return {
+                    name: name,
+                    type: TYPES.some(function (entry) { return entry.value === type; }) ? type : 'string',
+                    required: required.indexOf(name) !== -1,
+                    description: property.description || ''
+                };
+            });
+        }
+
+        function paramsToSchema(params) {
+            const properties = {};
+            const required = [];
+            params.forEach(function (param) {
+                const property = { type: param.type };
+                if (param.description) {
+                    property.description = param.description;
+                }
+                if (param.type === 'array') {
+                    property.items = { type: 'string' };
+                }
+                properties[param.name] = property;
+                if (param.required) {
+                    required.push(param.name);
+                }
+            });
+            const schema = { type: 'object', properties: properties };
+            if (required.length) {
+                schema.required = required;
+            }
+            return schema;
+        }
+
+        RED.nodes.registerType('ai-tool', {
+            category: 'ai agents',
+            color: '#aed581',
+            defaults: {
+                name: { value: '', required: true, validate: function (value) {
+                    return NAME_PATTERN.test(String(value || '').trim());
+                } },
+                description: { value: '', required: true },
+                parameters: { value: '' }
+            },
+            inputs: 1,
+            outputs: 1,
+            icon: 'subflow.svg',
+            paletteLabel: 'tool',
+            inputLabels: 'tool call',
+            // The result must be wired back into this input: the label says so on the node itself.
+            outputLabels: 'run tool flow, then wire back here',
+            label: function () {
+                return this.name || 'tool';
+            },
+            labelStyle: function () {
+                return this.name ? 'node_label_italic' : '';
+            },
+            oneditprepare: function () {
+                let params = [];
+                try {
+                    params = schemaToParams(this.parameters ? JSON.parse(this.parameters) : null);
+                } catch (error) {
+                    params = [];
+                }
+                const $list = $('#ai-agent-tool-params');
+                const node = this;
+
+                function render() {
+                    $list.empty();
+                    if (!params.length) {
+                        $list.append('<li class="ai-agent-tool-params-empty">No parameters. The model will call this tool with an empty object.</li>');
+                    }
+                    params.forEach(function (param, index) {
+                        const $row = $('<li class="ai-agent-tool-param-row"></li>');
+                        const $name = $('<input type="text" class="ai-agent-tool-param-name" placeholder="city">')
+                            .val(param.name)
+                            .on('input', function () { param.name = $(this).val().trim(); });
+                        const $type = $('<select class="ai-agent-tool-param-type"></select>');
+                        TYPES.forEach(function (entry) {
+                            $type.append($('<option></option>').val(entry.value).text(entry.label));
+                        });
+                        $type.val(param.type).on('change', function () { param.type = $(this).val(); });
+                        const $required = $('<input type="checkbox" style="width: 20px;">').prop('checked', param.required)
+                            .on('change', function () { param.required = $(this).prop('checked'); });
+                        const $description = $('<input type="text" class="ai-agent-tool-param-desc" placeholder="What this value means">')
+                            .val(param.description)
+                            .on('input', function () { param.description = $(this).val(); });
+                        const $remove = $('<button type="button" class="red-ui-button red-ui-button-small" title="Remove parameter"><i class="fa fa-trash"></i></button>')
+                            .on('click', function () {
+                                params.splice(index, 1);
+                                render();
+                            });
+                        $row.append(
+                            $('<div class="ai-agent-tool-param-fields"></div>').append(
+                                $('<div><label>Name</label></div>').append($name),
+                                $('<div><label>Type</label></div>').append($type),
+                                $('<div class="ai-agent-tool-param-desc-row"><label>Description</label></div>').append($description)
+                            ),
+                            $('<div class="ai-agent-tool-param-head"></div>').append(
+                                $('<label class="ai-agent-tool-param-required"></label>').append($required, ' required'),
+                                $remove
+                            )
+                        );
+                        $list.append($row);
+                    });
+                    node._aiToolParams = params;
+                    const summary = $('#ai-agent-tool-params-summary');
+                    summary.text(params.length ? params.length + ' parameter' + (params.length === 1 ? '' : 's') : '');
+                }
+
+                $('#ai-agent-tool-add-param').on('click', function () {
+                    params.push({ name: '', type: 'string', required: false, description: '' });
+                    render();
+                    $list.find('.ai-agent-tool-param-name').last().trigger('focus');
+                });
+
+                this._aiToolParams = params;
+                render();
+            },
+            oneditsave: function () {
+                const params = this._aiToolParams || [];
+                const names = {};
+                for (let index = 0; index < params.length; index += 1) {
+                    const param = params[index];
+                    if (!PARAM_PATTERN.test(String(param.name || ''))) {
+                        RED.notify('Parameter ' + (index + 1) + ': use a name starting with a letter or underscore', 'error');
+                        return false;
+                    }
+                    if (names[param.name]) {
+                        RED.notify('Duplicate parameter name: ' + param.name, 'error');
+                        return false;
+                    }
+                    names[param.name] = true;
+                }
+                this.parameters = JSON.stringify(paramsToSchema(params));
+            }
+        });
+
+    }());
+</script>
+
+<style>
+    .ai-agent-tool-params-list { list-style: none; margin: 0!important; padding: 0; overflow-y: auto; }
+    .ai-agent-tool-param-row { border: 1px solid #d9d9d9; border-radius: 3px; padding: 6px 8px; margin-bottom: 6px; background: #fafafa; }
+    .ai-agent-tool-param-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .ai-agent-tool-param-required { font-weight: normal; font-size: 12px; color: #666;width: 200px; padding-top: 5px;}
+    .ai-agent-tool-param-fields { display: grid; grid-template-columns: 1fr 150px; gap: 6px; }
+    .ai-agent-tool-param-fields label { font-weight: normal; font-size: 11px; color: #888; }
+    .ai-agent-tool-param-fields input[type=text], .ai-agent-tool-param-fields select { width: 100%; }
+    .ai-agent-tool-param-desc-row, .ai-agent-tool-param-desc-row + input { grid-column: 1 / span 2; }
+    .ai-agent-tool-param-desc { width: 100%; }
+    .ai-agent-tool-params-empty { padding: 8px; color: #888; }
+</style>
+
+<script type="text/html" data-template-name="ai-tool">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="get_weather">
+    </div>
+    <div class="form-tips">The name the model sees. Use snake_case: lowercase letters, digits and underscores, starting with a letter.</div>
+    <div class="form-row" style="margin-top: 10px;">
+        <label for="node-input-description"><i class="fa fa-info-circle"></i> Description</label>
+        <input type="text" id="node-input-description" placeholder="Returns the current weather for a city">
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-list-ul"></i> Parameters <span id="ai-agent-tool-params-summary" style="font-weight: normal; color: #888; margin-left: 6px;"></span></label>
+        <ul class="ai-agent-tool-params-list" id="ai-agent-tool-params"></ul>
+        <button type="button" class="red-ui-button red-ui-button-small" id="ai-agent-tool-add-param"><i class="fa fa-plus"></i> Add parameter</button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="ai-tool">
+    <p>Defines a capability of the agent and runs it as a Node-RED flow.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>When the agent calls the tool, the arguments chosen by the model (validated against the parameters). Otherwise, a normal message to test the flow by hand.</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">message</span></dt>
+        <dd>Passes the message to the tool flow unchanged.</dd>
+    </dl>
+
+    <h3>Wiring</h3>
+    <p>Wire the output to the nodes that do the work, and wire the last node <b>back into this Tool's input</b> (or into a <b>Tool Return</b> node wired the same way). A Tool that is never wired back leaves the agent waiting and the node stuck in <b>running</b>.</p>
+
+    <h3>Details</h3>
+    <p><b>Name</b> and <b>Description</b> are the tool definition the model reads. Add one row per <b>parameter</b> (name, type, required, description); the node stores them as a JSON Schema and validates the arguments before the flow runs, reporting invalid ones to the model.</p>
+    <p>The Tool node starts its flow when the agent calls it and ends it when the flow reaches it again (returning <code>msg.payload</code>). A <b>Tool Return</b> node can be used instead when the result lives in another property.</p>
+    <p>Any node can sit in between: HTTP Request, MQTT, PostgreSQL, Function, home automation, and so on.</p>
+</script>
+

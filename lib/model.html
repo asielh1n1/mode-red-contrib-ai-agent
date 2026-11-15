@@ -1,0 +1,332 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        RED.nodes.registerType('ai-agent-model', {
+            category: 'config',
+            color: '#3FADB5',
+            defaults: {
+                name: { value: '' },
+                provider: { value: '' },
+                baseUrl: { value: '' },
+                apiKeyValue: { value: '' },
+                apiKeyValueType: { value: 'str' },
+                model: { value: '' },
+                reasoningEffort: { value: 'auto' },
+                temperature: { value: '0.7' },
+                maxTokens: { value: '2048' },
+                timeout: { value: '60000' }
+            },
+            credentials: {
+                // A literal key is stored here, never in the flow.
+                apiKey: { type: 'password' }
+            },
+            label: function () {
+                return this.name || this.model || 'model';
+            },
+            labelStyle: function () {
+                return this.name ? 'node_label_italic' : '';
+            },
+            oneditprepare: function () {
+                const self = this;
+                const $provider = $('#node-config-input-provider');
+                const $model = $('#node-config-input-model');
+                const $baseUrl = $('#node-config-input-baseUrl');
+                const $effort = $('#node-config-input-reasoningEffort');
+                const $key = $('#node-config-input-apiKeyValue');
+                const $modelList = $('#ai-agent-model-list');
+                let catalog = {};
+
+                // The environment variables of the flow tab this dialog belongs to. Sending them with
+                // the check keeps the value visible before the node is deployed, and the runtime still
+                // reads the real environment when the node exists.
+                function flowEnv() {
+                    const flow = RED.nodes.workspace ? RED.nodes.workspace(self.z) : null;
+                    return (flow && flow.env) || null;
+                }
+
+                // The key is a typed value: pick string and type it (stored as a credential, never
+                // exported with the flow), or pick env and name the Node-RED environment variable.
+                const storedType = self.apiKeyValueType === 'env' ? 'env' : 'str';
+                $key.val(storedType === 'env' ? self.apiKeyValue || '' : '');
+                $key.typedInput({
+                    type: storedType,
+                    types: ['str', 'env'],
+                    typeField: '#node-config-input-apiKeyValueType'
+                });
+
+                // Node-RED never hands a stored password back to the editor, so the literal key
+                // is asked from the node when the dialog opens: keeping it in the field means
+                // saving the dialog again does not lose it.
+                if (self.id) {
+                    $.getJSON('ai-agents/model/key/' + encodeURIComponent(self.id))
+                        .done(function (info) {
+                            if (!info) {
+                                return;
+                            }
+                            if (info.apiKeyType === 'env' && !$key.val()) {
+                                // The dialog was saved with an environment variable name.
+                                $key.typedInput('type', 'env');
+                                $key.typedInput('value', info.apiKeyEnv || '');
+                                return;
+                            }
+                            if (info.key && !$key.val()) {
+                                $key.typedInput('type', 'str');
+                                $key.typedInput('value', info.key);
+                            }
+                        });
+                }
+
+                $('#node-config-input-temperature').spinner({ min: 0, max: 2, step: 0.1 });
+                $('#node-config-input-maxTokens').spinner({ min: 1, max: 131072 });
+                $('#node-config-input-timeout').spinner({ min: 1000, max: 600000 });
+
+                function entry() {
+                    return catalog[$provider.val()] || {};
+                }
+
+                function levelLabel(level) {
+                    if (level === 'auto') {
+                        return 'Auto (model default)';
+                    }
+                    if (level === 'none') {
+                        return 'None (fastest)';
+                    }
+                    return level.charAt(0).toUpperCase() + level.slice(1);
+                }
+
+                function fillProviders(selected) {
+                    $provider.empty();
+                    Object.keys(catalog).forEach(function (id) {
+                        $provider.append($('<option></option>').val(id).text(catalog[id].label));
+                    });
+                    // Nothing is preselected for a flow saved without a provider: the first entry
+                    // in the list is shown but the user has to confirm it by saving.
+                    $provider.val(catalog[selected] ? selected : Object.keys(catalog)[0] || '');
+                }
+
+                function fillEffort() {
+                    const levels = (entry().effort && entry().effort.levels) || ['auto'];
+                    const current = String(self.reasoningEffort || '');
+                    $effort.empty();
+                    levels.forEach(function (level) {
+                        $effort.append($('<option></option>').val(level).text(levelLabel(level)));
+                    });
+                    $effort.val(levels.indexOf(current) !== -1 ? current : levels[0]);
+                }
+
+                // Switching provider changes nothing the user typed: the model name is theirs,
+                // only the defaults that were never edited are filled in.
+                function syncProvider() {
+                    $baseUrl.attr('placeholder', entry().defaults ? entry().defaults.baseUrl : '');
+                    if (!$baseUrl.val() || Object.keys(catalog).some(function (id) { return catalog[id].defaults && catalog[id].defaults.baseUrl === $baseUrl.val(); })) {
+                        $baseUrl.val(entry().defaults ? entry().defaults.baseUrl : '');
+                    }
+                    fillEffort();
+                    $modelList.empty();
+                }
+
+                $.getJSON('ai-agents/model/catalog')
+                    .done(function (data) {
+                        catalog = data || {};
+                    })
+                    .fail(function () {
+                        RED.notify('Could not load the provider catalog', 'error');
+                        catalog = {};
+                    })
+                    .always(function () {
+                        fillProviders(self.provider);
+                        fillEffort();
+                        syncProvider();
+                    });
+
+                $provider.on('change', syncProvider);
+
+                // Reads the typed input: a literal key, or the name of a Node-RED environment variable.
+                function keyDescriptor() {
+                    const type = $('#node-config-input-apiKeyValueType').val() === 'env' ? 'env' : 'str';
+                    const value = String($key.val() || '').trim();
+                    return { type: type, value: value };
+                }
+
+                // Lists the models the provider's own API reports, so no list ships in the package.
+                $('#ai-agent-model-fetch').on('click', function () {
+                    const button = $(this);
+                    const key = keyDescriptor();
+                    button.prop('disabled', true);
+                    $modelList.empty().append('<li class="ai-agent-model-empty">Asking the provider...</li>');
+                    $.ajax({
+                        url: 'ai-agents/model/list',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            provider: $provider.val(),
+                            baseUrl: $baseUrl.val(),
+                            apiKeyType: key.type,
+                            apiKeyEnv: key.type === 'env' ? key.value : '',
+                            apiKey: key.type === 'str' ? key.value : '',
+                            flowId: self.z || '',
+                            flowEnv: flowEnv(),
+                            id: self.id || ''
+                        })
+                    })
+                        .done(function (data) {
+                            const models = (data && data.models) || [];
+                            $modelList.empty();
+                            if (!models.length) {
+                                $modelList.append('<li class="ai-agent-model-empty">The provider returned no models.</li>');
+                                return;
+                            }
+                            models.forEach(function (id) {
+                                $modelList.append(
+                                    $('<li class="ai-agent-model-row"></li>').append(
+                                        $('<button type="button" class="red-ui-button red-ui-button-small"></button>')
+                                            .text(id)
+                                            .on('click', function () {
+                                                $model.val(id);
+                                            })
+                                    )
+                                );
+                            });
+                            RED.notify(models.length + ' model(s) available', 'success');
+                        })
+                        .fail(function (xhr) {
+                            const payload = xhr.responseJSON || {};
+                            $modelList.empty().append('<li class="ai-agent-model-empty"></li>').text(payload.error || 'Could not list the models');
+                            RED.notify(payload.error || 'Could not list the models', 'error');
+                        })
+                        .always(function () {
+                            button.prop('disabled', false);
+                        });
+                });
+
+                // Validates the values typed in this dialog, before the flow is deployed.
+                $('#ai-agent-model-check').on('click', function () {
+                    const key = keyDescriptor();
+                    $.ajax({
+                        url: 'ai-agents/model/validate',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            provider: $provider.val(),
+                            model: $model.val(),
+                            baseUrl: $baseUrl.val(),
+                            reasoningEffort: $effort.val(),
+                            apiKeyType: key.type,
+                            apiKeyEnv: key.type === 'env' ? key.value : '',
+                            apiKey: key.type === 'str' ? key.value : '',
+                            hasKey: key.type === 'str' && !key.value && self.hasKey,
+                            flowId: self.z || '',
+                            flowEnv: flowEnv(),
+                            id: self.id || ''
+                        })
+                    })
+                        .done(function (info) {
+                            if (info.error) {
+                                RED.notify(info.error, 'error');
+                                return;
+                            }
+                            const parts = ['Model: ' + info.model, 'Provider: ' + (info.providerLabel || info.provider)];
+                            if (info.reasoningEffort) {
+                                parts.push('Effort: ' + info.reasoningEffort);
+                            }
+                            if (info.apiKeyType === 'env') {
+                                parts.push('API key: ' + (info.configured ? 'found in ' + info.apiKeyEnv : info.apiKeyEnv + ' is not set'));
+                            } else {
+                                parts.push('API key: ' + (info.configured ? 'configured' : 'missing'));
+                            }
+                            RED.notify(parts.join(' \u00b7 '), info.configured ? 'success' : 'warning');
+                        })
+                        .fail(function (xhr) {
+                            const payload = xhr.responseJSON || {};
+                            RED.notify(payload.error || 'Could not validate the model', 'error');
+                        });
+                });
+            },
+            oneditsave: function () {
+                const type = $('#node-config-input-apiKeyValueType').val() === 'env' ? 'env' : 'str';
+                const value = String($('#node-config-input-apiKeyValue').val() || '').trim();
+                this.apiKeyValue = type === 'env' ? value : '';
+                this.apiKeyValueType = type;
+                // Only a literal key is written to the credential, so an env reference or an
+                // empty field never wipes the key that is already stored.
+                this.credentials = this.credentials || {};
+                if (type === 'str' && value) {
+                    this.credentials.apiKey = value;
+                }
+            }
+        });
+    }());
+</script>
+
+<style>
+    .ai-agent-model-list { list-style: none; margin: 0; padding: 0; max-height: 160px; overflow-y: auto; border: 1px solid #d9d9d9; margin-top: 10px !important; margin-left: 0px !important;}
+    .ai-agent-model-row { padding: 2px 4px; border-bottom: 1px solid #eee; }
+    .ai-agent-model-row:last-child { border-bottom: none; }
+    .ai-agent-model-row button { font-family: monospace; }
+    .ai-agent-model-empty { padding: 6px; color: #888; }
+</style>
+
+<script type="text/html" data-template-name="ai-agent-model">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Model">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-provider"><i class="fa fa-cloud"></i> Provider</label>
+        <select id="node-config-input-provider"></select>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-baseUrl"><i class="fa fa-globe"></i> Base URL</label>
+        <input type="text" id="node-config-input-baseUrl" placeholder="Leave empty to use the provider's endpoint">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-apiKeyValue"><i class="fa fa-key"></i> API key</label>
+        <input type="text" id="node-config-input-apiKeyValue" placeholder="sk-...">
+        <input type="hidden" id="node-config-input-apiKeyValueType">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-model"><i class="fa fa-microchip"></i> Model</label>
+        <input type="text" id="node-config-input-model" placeholder="Type the exact model name">
+    </div>
+    <div class="form-tips">Type the model name exactly as the provider documents it. Use <b>List models</b> to ask the provider for the names it currently offers.</div>
+    <ul class="ai-agent-model-list" id="ai-agent-model-list"></ul>
+    <div class="form-row">
+        <button type="button" class="red-ui-button" id="ai-agent-model-fetch"><i class="fa fa-search"></i> List models</button>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-reasoningEffort"><i class="fa fa-brain"></i> Reasoning effort</label>
+        <select id="node-config-input-reasoningEffort"></select>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-temperature"><i class="fa fa-thermometer-half"></i> Temperature</label>
+        <input type="text" id="node-config-input-temperature" style="width: 110px;" placeholder="0.7">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-maxTokens"><i class="fa fa-align-left"></i> Max tokens</label>
+        <input type="text" id="node-config-input-maxTokens" style="width: 110px;" placeholder="2048">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+        <input type="text" id="node-config-input-timeout" style="width: 110px;" placeholder="60000">
+    </div>
+    <div class="form-row">
+        <button type="button" class="red-ui-button" id="ai-agent-model-check"><i class="fa fa-check"></i> Check configuration</button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="ai-agent-model">
+    <p>Model configuration shared by the AI Agent nodes: provider, model, API key and reasoning effort.</p>
+
+    <h3>Details</h3>
+    <p>Supported providers: <b>DeepSeek</b>, <b>OpenAI</b>, <b>Anthropic</b>, <b>Google Gemini</b> and <b>OpenRouter</b>, each through its official LangChain.js integration. OpenRouter uses the OpenAI client pointed at its own endpoint.</p>
+    <p>The <b>Model</b> is typed by hand and is not validated against a list: providers add and retire models all the time, so the node sends whatever you write and reports the provider error if the name does not exist. <b>List models</b> asks the provider's own API for the names it currently offers and fills the field when you click one.</p>
+    <p><b>Reasoning effort</b> is forwarded in the shape each API understands: <code>reasoning.effort</code> (OpenAI, OpenRouter), <code>outputConfig.effort</code> (Anthropic) and <code>thinkingConfig</code> (Gemini). DeepSeek reasoning models decide on their own and only offer <i>Auto</i>.</p>
+    <p>The <b>API key</b> is a typed value: pick <b>string</b> and type it, and it is stored as a credential that is never exported with the flow; or pick <b>env</b> and name a Node-RED environment variable (defined in <code>settings.js</code> under <code>env</code>, or as a flow/group/global variable) to read at run time. The server's own <code>process.env</code> is not consulted. The stored key is filled back into the dialog when you reopen the node.</p>
+
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://docs.langchain.com/oss/javascript/integrations/chat" target="_blank" rel="noreferrer">LangChain.js chat models</a></li>
+        <li><a href="https://openrouter.ai/docs" target="_blank" rel="noreferrer">OpenRouter API</a></li>
+    </ul>
+</script>

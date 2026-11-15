@@ -1,0 +1,161 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        RED.nodes.registerType('ai-agent-memory', {
+            category: 'config',
+            color: '#A6BBCF',
+            defaults: {
+                name: { value: '' },
+                memoryKind: { value: 'ram' },
+                databaseUrl: { value: '' },
+                databaseUrlType: { value: 'str' },
+                memorySchema: { value: 'public' },
+                // Messages kept per session id. 0 keeps the whole conversation.
+                contextWindow: { value: 0, validate: RED.validators.number() }
+            },
+            credentials: {
+                databasePassword: { type: 'password' }
+            },
+            label: function () {
+                if (this.name) {
+                    return this.name;
+                }
+                if (this.memoryKind === 'postgres') {
+                    return 'Postgres memory';
+                }
+                if (this.memoryKind === 'redis') {
+                    return 'Redis memory';
+                }
+                return 'conversation memory';
+            },
+            oneditprepare: function () {
+                const $kind = $('#node-config-input-memoryKind');
+                const $storageRows = $('.ai-agent-memory-storage-row');
+                const $schemaRow = $('.ai-agent-memory-schema-row');
+                const $passwordRow = $('.ai-agent-memory-password-row');
+
+                // The connection string is a typed value, like in core nodes: a literal
+                // string or a property of msg, flow, global, or an environment variable.
+                $('#node-config-input-databaseUrl').typedInput({
+                    type: 'str',
+                    types: ['str', 'msg', 'flow', 'global', 'env'],
+                    typeField: '#node-config-input-databaseUrlType'
+                });
+
+                const placeholders = {
+                    postgres: 'postgresql://user:password@host:5432/database',
+                    redis: 'redis://user:password@host:6379'
+                };
+
+                function syncKind() {
+                    const kind = $kind.val();
+                    const storage = kind === 'postgres' || kind === 'redis';
+                    $storageRows.toggle(storage);
+                    $schemaRow.toggle(kind === 'postgres');
+                    // The password only applies to Postgres: Redis carries it in the URL.
+                    $passwordRow.toggle(kind === 'postgres');
+                    $('#node-config-input-databaseUrl').attr('placeholder', placeholders[kind] || '');
+                }
+                $kind.on('change', syncKind);
+                syncKind();
+
+                // Tests the values in the dialog, so it works before the node is deployed and
+                // with unsaved changes. Nothing is stored: the test opens its own connection.
+                $('#ai-agent-memory-check').on('click', function () {
+                    const button = $(this);
+                    const kind = $kind.val();
+                    button.prop('disabled', true);
+                    $.ajax({
+                        url: 'ai-agents/memory/check',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            memoryKind: kind,
+                            databaseUrl: $('#node-config-input-databaseUrl').val(),
+                            databaseUrlType: $('#node-config-input-databaseUrlType').val(),
+                            memorySchema: $('#node-config-input-memorySchema').val(),
+                            databasePassword: $('#node-config-input-databasePassword').val()
+                        })
+                    })
+                        .done(function (info) {
+                            if (info.kind === 'ram') {
+                                RED.notify('Conversation memory needs no external service', 'success');
+                            } else {
+                                RED.notify(info.kind === 'redis' ? 'Redis configured correctly' : 'Postgres configured correctly', 'success');
+                            }
+                        })
+                        .fail(function (xhr) {
+                            const payload = xhr.responseJSON || {};
+                            RED.notify(payload.error || 'Could not connect to the storage', 'error');
+                        })
+                        .always(function () {
+                            button.prop('disabled', false);
+                        });
+                });
+            }
+        });
+    }());
+</script>
+
+<script type="text/html" data-template-name="ai-agent-memory">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Conversation memory">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-memoryKind"><i class="fa fa-database"></i> Storage</label>
+        <select id="node-config-input-memoryKind">
+            <option value="ram">Conversation memory</option>
+            <option value="postgres">Postgres</option>
+            <option value="redis">Redis</option>
+        </select>
+    </div>
+    <div class="form-row ai-agent-memory-storage-row">
+        <label for="node-config-input-databaseUrl"><i class="fa fa-plug"></i> URL</label>
+        <input type="text" id="node-config-input-databaseUrl">
+        <input type="hidden" id="node-config-input-databaseUrlType">
+    </div>
+    <div class="form-row ai-agent-memory-storage-row ai-agent-memory-password-row">
+        <label for="node-config-input-databasePassword"><i class="fa fa-lock"></i> Password</label>
+        <input type="password" id="node-config-input-databasePassword" placeholder="Optional, overrides the URL password">
+    </div>
+    <div class="form-row ai-agent-memory-schema-row">
+        <label for="node-config-input-memorySchema"><i class="fa fa-cubes"></i> Schema</label>
+        <input type="text" id="node-config-input-memorySchema" placeholder="public">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-contextWindow"><i class="fa fa-window-maximize"></i> Context window length</label>
+        <input type="text" id="node-config-input-contextWindow"  placeholder="0" value="10">
+    </div>
+    <div class="form-row ai-agent-memory-storage-row">
+        <button type="button" class="red-ui-button" id="ai-agent-memory-check"><i class="fa fa-refresh"></i> Test connection</button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="ai-agent-memory">
+    <p>Conversation memory for the AI Agent, selected by the agent's <b>Session id</b>.</p>
+
+    <h3>Details</h3>
+    <p>Memory is implemented with LangGraph checkpointers: each session id becomes a thread whose state (messages and tool steps) is saved at every super-step.</p>
+    <ul>
+        <li><b>Conversation memory</b>: kept in Node-RED itself. Fast and needs no service, and it also survives a deploy, but every conversation is lost when Node-RED restarts. Good for testing and for single-user flows.</li>
+        <li><b>Postgres</b>: saved in PostgreSQL, so conversations survive restarts and are shared between Node-RED instances. The tables are created in the configured schema on first use.</li>
+        <li><b>Redis</b>: saved in Redis, with the same benefits. It needs the RediSearch module, which Redis Stack and most managed Redis services include.</li>
+    </ul>
+    <p>The connection <b>URL</b> accepts a typed value: a literal string, or a property of <code>msg</code>, <code>flow</code>, <code>global</code>, or an environment variable. It is evaluated for every message with Node-RED's own typed properties.</p>
+
+    <h3>Context window length</h3>
+    <p>How many messages of a session are kept: with a value of <code>10</code> the model only sees the last 10 messages of that session id and everything older is dropped, so the agent loses the start of a long conversation instead of growing without limit.</p>
+    <p>It is applied with LangChain's <code>contextEditingMiddleware</code>, which trims the messages sent to the model on every call, so it behaves the same for all three storages: the limit is applied when the conversation is read, not when it is stored. <code>0</code> keeps the whole conversation, the default for flows saved before this option existed.</p>
+
+    <p>Without a memory node the agent answers statelessly: every message is an independent model call.</p>
+    <p>Session ids must be 255 characters or fewer.</p>
+
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://docs.langchain.com/oss/javascript/langgraph/checkpointers" target="_blank" rel="noreferrer">LangGraph checkpointers</a></li>
+        <li><a href="https://docs.langchain.com/oss/javascript/langchain/short-term-memory" target="_blank" rel="noreferrer">LangChain short-term memory</a></li>
+        <li><a href="https://nodered.org/docs/api/ui/typedInput" target="_blank" rel="noreferrer">Node-RED typedInput</a></li>
+    </ul>
+</script>

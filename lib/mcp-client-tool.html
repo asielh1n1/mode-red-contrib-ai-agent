@@ -1,0 +1,117 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        // This node is wired to the Agent's "tool calls" output. It has no flow of its own: the
+        // MCP server answers, so the node resolves the call itself and needs no Tool Return.
+        // The tools are chosen in the connection, so this dialog only shows what will be exposed.
+        RED.nodes.registerType('mcp-client-tool', {
+            category: 'ai agents',
+            color: '#ffd54f',
+            icon: 'font-awesome/fa-flash',
+            defaults: {
+                name: { value: '' },
+                connection: { value: '', type: 'mcp-client', required: true }
+            },
+            inputs: 1,
+            outputs: 0,
+            paletteLabel: 'mcp tool',
+            inputLabels: 'tool call',
+            label: function () {
+                return this.name || 'mcp tool';
+            },
+            labelStyle: function () {
+                return this.name ? 'node_label_italic' : '';
+            },
+            oneditprepare: function () {
+                function connectionId() {
+                    const value = $('#node-input-connection').val();
+                    return value && value !== '_ADD_' ? value : '';
+                }
+
+                function readCatalog() {
+                    const connection = connectionId() ? RED.nodes.node(connectionId()) : null;
+                    if (!connection || !connection.tools) {
+                        return null;
+                    }
+                    try {
+                        const catalog = JSON.parse(connection.tools);
+                        return Array.isArray(catalog) ? catalog : [];
+                    } catch (error) {
+                        return [];
+                    }
+                }
+
+                function render() {
+                    const $list = $('#mcp-tool-exposed');
+                    $list.empty();
+                    const catalog = readCatalog();
+                    if (catalog === null) {
+                        $list.append('<li class="mcp-tool-empty">Pick a connection to see the tools it exposes.</li>');
+                        return;
+                    }
+                    if (!catalog.length) {
+                        $list.append('<li class="mcp-tool-empty">The connection has no tools selected. Open it and press <b>Discover tools</b>.</li>');
+                        return;
+                    }
+                    catalog.forEach(function (tool) {
+                        $list.append(
+                            $('<li class="mcp-tool-row"></li>').append(
+                                $('<span class="mcp-tool-name"></span>').text(tool.name),
+                                tool.description
+                                    ? $('<span class="mcp-tool-desc"></span>').text(tool.description)
+                                    : ''
+                            )
+                        );
+                    });
+                    $('#mcp-tool-count').text(catalog.length + ' tool(s)');
+                }
+
+                // Changing the connection updates the list without closing the dialog.
+                $('#node-input-connection').on('change', render);
+                render();
+            }
+        });
+    }());
+</script>
+
+<style>
+    .mcp-tool-list { list-style: none; margin: 0 !important; padding: 0; max-height: 200px; overflow-y: auto; border: 1px solid #d9d9d9; }
+    .mcp-tool-row { padding: 5px 8px; border-bottom: 1px solid #eee; }
+    .mcp-tool-row:last-child { border-bottom: none; }
+    .mcp-tool-name { font-family: monospace; font-weight: 600; }
+    .mcp-tool-desc { display: block; color: #888; font-size: 12px; }
+    .mcp-tool-empty { padding: 8px; color: #888; }
+    .mcp-tool-count { color: #888; font-size: 12px; margin-left: 6px; }
+</style>
+
+<script type="text/html" data-template-name="mcp-client-tool">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="MCP tools">
+    </div>
+    <div class="form-row">
+        <label for="node-input-connection"><i class="fa fa-plug"></i> Connection</label>
+        <input type="text" id="node-input-connection">
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-wrench"></i> Exposed tools <span class="mcp-tool-count" id="mcp-tool-count"></span></label>
+        <ul class="mcp-tool-list" id="mcp-tool-exposed"></ul>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mcp-client-tool">
+    <p>Exposes the tools of an external <a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer">MCP server</a> to the Agent.</p>
+
+    <h3>Input</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>Arguments of a tool call, as chosen by the model. It is only delivered to this node when the call belongs to one of the tools it exposes.</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>Wire the Agent's <b>tool calls</b> output to this node's input, like any other Tool. It announces only the tools selected in its <b>connection</b>, so a large MCP catalog never floods the model.</p>
+    <p>Unlike a Tool node, it has no output of its own: the MCP server produces the answer, so the node hands the result straight back to the Agent and no <b>Tool Return</b> is needed.</p>
+    <p>When the server reports that a tool could not complete the call (a document missing from its index, a bad query, a rate limit), the reason is returned to the model as the tool result, so the agent can retry or answer instead of failing. Only a connection problem stops the run.</p>
+    <p>Tool names keep the name the server uses. If two servers expose the same name, expose only one of them.</p>
+</script>

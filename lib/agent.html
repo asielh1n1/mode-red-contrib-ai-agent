@@ -1,0 +1,111 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        RED.nodes.registerType('ai-agent', {
+            category: 'ai agents',
+            color: '#4fc3f7',
+            defaults: {
+                name: { value: '' },
+                model: { value: '', type: 'ai-agent-model', required: true },
+                modelMemory: { value: '', type: 'ai-agent-memory' },
+                sessionId: { value: 'session_id' },
+                sessionIdType: { value: 'msg' },
+                systemPrompt: { value: '' },
+                recursionLimit: { value: 10 },
+                maxToolCalls: { value: 8 },
+                agentTimeout: { value: 120000 }
+            },
+            inputs: 1,
+            outputs: 2,
+            icon: 'ai-agent.svg',
+            paletteLabel: 'agent',
+            inputLabels: 'user message',
+            outputLabels: ['answer', 'tool calls'],
+            label: function () {
+                return this.name || 'agent';
+            },
+            labelStyle: function () {
+                return this.name ? 'node_label_italic' : '';
+            },
+            oneditprepare: function () {
+                $('#node-input-sessionId').typedInput({
+                    type: 'msg',
+                    types: ['msg', 'flow', 'global', 'env', 'str'],
+                    typeField: '#node-input-sessionIdType'
+                });
+            },
+            oneditsave: function () {
+                this.systemPrompt = $('#node-input-systemPrompt').val() || '';
+            }
+        });
+    }());
+</script>
+
+<script type="text/html" data-template-name="ai-agent">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Agent">
+    </div>
+    <div class="form-row">
+        <label for="node-input-model"><i class="fa fa-microchip"></i> Model</label>
+        <input type="text" id="node-input-model">
+    </div>
+    <div class="form-row">
+        <label for="node-input-modelMemory"><i class="fa fa-database"></i> Memory</label>
+        <input type="text" id="node-input-modelMemory">
+    </div>
+    <div class="form-row">
+        <label for="node-input-sessionId"><i class="fa fa-key"></i> Session id</label>
+        <input type="text" id="node-input-sessionId" placeholder="session_id">
+        <input type="hidden" id="node-input-sessionIdType">
+    </div>
+    <div class="form-row">
+        <label for="node-input-systemPrompt"><i class="fa fa-quote-left"></i> System prompt</label>
+        <textarea id="node-input-systemPrompt" rows="6" style="width: 100%; resize: vertical;"
+            placeholder="You are a helpful assistant."></textarea>
+    </div>
+    <div class="form-tips">If the incoming message carries <code>msg.system_prompt</code>, that value is used instead of this text. Handy for long prompts built by another node.</div>
+    <div class="form-row" style="margin-top: 10px;">
+        <label for="node-input-recursionLimit"><i class="fa fa-sitemap"></i> Reasoning steps</label>
+        <input type="number" id="node-input-recursionLimit">
+    </div>
+    <div class="form-row">
+        <label for="node-input-maxToolCalls">Tool calls</label>
+        <input type="number" id="node-input-maxToolCalls">
+    </div>
+    <div class="form-row">
+        <label for="node-input-agentTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+        <input type="number" id="node-input-agentTimeout">
+    </div>
+</script>
+<script type="text/html" data-help-name="ai-agent">
+    <p>Runs an AI agent with LangChain.js and LangGraph: it talks to a model, calls Tool nodes, and answers.</p>
+
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string | buffer | object</span></dt>
+        <dd>The user message. Objects are sent as JSON unless they have a <code>text</code> or <code>content</code> property.</dd>
+    </dl>
+
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>1. answer <span class="property-type">message</span></dt>
+        <dd>The received message with <code>payload</code> replaced by the final answer and <code>session_id</code> set.</dd>
+        <dt>2. tool calls <span class="property-type">message</span></dt>
+        <dd>One message per tool call. <code>payload</code> holds the arguments the model chose and <code>msg["ai-agents/tool-result"].name</code> is the tool name. Wire it to every Tool node you want to expose.</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>The tools offered to the model are discovered from the wires of output 2: every <b>Tool</b> node connected there (including the nodes inside a connected subflow) is announced to the model, and nothing else is. Remove a wire to hide a tool. Tools in other flows are not reachable: keep them in the same flow or move them into a subflow.</p>
+    <p><b>Session id</b> selects the conversation. Choose <code>msg</code>, <code>flow</code>, <code>global</code> or <code>env</code> and write the property name, or choose <code>string</code> for a constant value. The value must be 255 characters or fewer. The same id on every message is what makes the agent remember: with the default <code>msg</code> type, the incoming message must carry that property (for example <code>msg.session_id</code>).</p>
+    <p><b>System prompt</b> is the base instruction. If the incoming message carries <code>msg.system_prompt</code> (and it is not blank), that value is used instead, which is the way to send a long prompt built by another node.</p>
+    <p>Memory keeps the conversation while Node-RED runs: it survives a deploy, but the <i>Conversation memory</i> kind is lost when Node-RED restarts, so use the <i>Database</i> kind to keep it.</p>
+    <p>Tool calls are asynchronous: when the Tool flow ends, the result is handed back to the agent and the reasoning continues.</p>
+    <p><b>Reasoning steps</b> is the cap on how many times the agent may go back to the model. Each round is one step: the model thinks, optionally asks for a tool, the result comes back, and the model thinks again. A message that calls no tool needs 1, a message that calls one tool usually needs 2 or 3. It maps to LangGraph's <code>recursionLimit</code>, so raising it allows longer tool chains and lowering it cuts off loops sooner.</p>
+    <p><b>Tool calls</b> is a different cap: the maximum number of tools a single message may invoke, either in one round (several calls at once) or across rounds. It stops a model that keeps calling the same tool forever. It does not limit how many tools the node exposes; that is decided by the wiring and by the MCP connection.</p>
+    <p>The whole run is also bounded by <i>Timeout</i>.</p>
+    <p>Errors are reported with <code>node.error</code> so <b>Catch</b> nodes can handle them, and the status shows <i>thinking</i> while it works, <i>done</i> when it answers and <i>model error</i> when it fails; the badge is then removed.</p>
+    <p>Requires Node-RED 5 and Node.js 22.9 or later (the Node-RED 5 minimum).</p>
+</script>
+

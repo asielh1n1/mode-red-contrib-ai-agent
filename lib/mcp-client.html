@@ -1,0 +1,303 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        // The catalog is discovered from the server: the dialog only shows it and lets the user
+        // pick which tools are announced to the Agent. Nothing has to be written by hand.
+        RED.nodes.registerType('mcp-client', {
+            category: 'config',
+            color: '#607d8b',
+            icon: 'font-awesome/fa-flash',
+            defaults: {
+                name: { value: '' },
+                transport: { value: 'http' },
+                url: { value: '' },
+                urlType: { value: 'str' },
+                command: { value: '' },
+                args: { value: '' },
+                headers: { value: '' },
+                tools: { value: '' },
+                timeout: { value: 60000 }
+            },
+            label: function () {
+                return this.name || (this.transport === 'stdio' ? 'local MCP server' : 'MCP server');
+            },
+            oneditprepare: function () {
+                const node = this;
+                const $transport = $('#node-config-input-transport');
+
+                // The URL can be a literal, or come from msg/flow/global/env like in the other
+                // nodes; only a literal URL can be discovered before the flow is deployed.
+                $('#node-config-input-url').typedInput({
+                    type: 'str',
+                    types: ['str', 'msg', 'flow', 'global', 'env'],
+                    typeField: '#node-config-input-urlType'
+                });
+                $('#node-config-input-timeout').spinner({ min: 1000, max: 600000 });
+
+                // Headers are edited as rows (name + value) and stored as a JSON object.
+                let headers = {};
+                try {
+                    headers = node.headers ? JSON.parse(node.headers) : {};
+                } catch (error) {
+                    headers = {};
+                }
+                const $headers = $('#mcp-headers');
+
+                function renderHeaders() {
+                    $headers.empty();
+                    const names = Object.keys(headers);
+                    if (!names.length) {
+                        $headers.append('<li class="mcp-header-empty">No headers.</li>');
+                        return;
+                    }
+                    names.forEach(function (name) {
+                        const $name = $('<input type="text" class="mcp-header-name" placeholder="Authorization">').val(name);
+                        const $value = $('<input type="text" class="mcp-header-value" placeholder="Bearer ...">').val(headers[name]);
+                        const $remove = $('<button type="button" class="red-ui-button red-ui-button-small" title="Remove"><i class="fa fa-trash"></i></button>')
+                            .on('click', function () {
+                                delete headers[$name.val()];
+                                renderHeaders();
+                            });
+                        // Renaming rewrites the key, keeping the value and the order of the rest.
+                        $name.on('change', function () {
+                            const next = {};
+                            Object.keys(headers).forEach(function (key) {
+                                next[key === name ? $(this).val() : key] = key === name ? $value.val() : headers[key];
+                            }, $name);
+                            headers = next;
+                            renderHeaders();
+                        });
+                        $value.on('change', function () {
+                            headers[$name.val()] = $(this).val();
+                        });
+                        $headers.append(
+                            $('<li class="mcp-header-row"></li>').append($name, $value, $remove)
+                        );
+                    });
+                }
+
+                $('#mcp-header-add').on('click', function () {
+                    let index = Object.keys(headers).length + 1;
+                    let name = 'header' + index;
+                    while (headers[name] !== undefined) {
+                        index += 1;
+                        name = 'header' + index;
+                    }
+                    headers[name] = '';
+                    renderHeaders();
+                    $headers.find('.mcp-header-name').last().trigger('focus').trigger('select');
+                });
+
+                renderHeaders();
+
+                function syncTransport() {
+                    $('.mcp-http-row').toggle($transport.val() !== 'stdio');
+                    $('.mcp-stdio-row').toggle($transport.val() === 'stdio');
+                }
+                $transport.on('change', syncTransport);
+                syncTransport();
+
+                let tools = [];
+                try {
+                    tools = node.tools ? JSON.parse(node.tools) : [];
+                } catch (error) {
+                    tools = [];
+                }
+                const selected = new Set(tools.map(function (tool) { return tool.name; }));
+                const $list = $('#mcp-client-tools');
+
+                function render(toolList) {
+                    $list.empty();
+                    if (!toolList.length) {
+                        $list.append('<li class="mcp-client-empty">No tools discovered yet. Use <b>Discover tools</b>.</li>');
+                        return;
+                    }
+                    toolList.forEach(function (tool) {
+                        const $checkbox = $('<input type="checkbox" style="width: 30px;">')
+                            .prop('checked', selected.has(tool.name))
+                            .on('change', function () {
+                                if ($(this).prop('checked')) {
+                                    selected.add(tool.name);
+                                } else {
+                                    selected.delete(tool.name);
+                                }
+                            });
+                        // Checkbox and name share one line; the description sits under both.
+                        $list.append(
+                            $('<li class="mcp-client-tool-row"></li>').append(
+                                $('<div class="mcp-client-tool-head"></div>').append($checkbox,$('<span class="mcp-client-tool-name"></span>').text(tool.name)),
+                                tool.description
+                                    ? $('<div class="mcp-client-tool-desc"></div>').text(tool.description)
+                                    : ''
+                            )
+                        );
+                    });
+                }
+
+                render(tools.map(function (tool) {
+                    return { name: tool.name, description: tool.description };
+                }));
+
+                function discover() {
+                    const button = $('#mcp-client-discover');
+                    button.prop('disabled', true);
+                    $.ajax({
+                        url: 'ai-agents/mcp/discover',
+                        method: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({
+                            name: $('#node-config-input-name').val(),
+                            transport: $transport.val(),
+                            url: $('#node-config-input-url').val(),
+                            urlType: $('#node-config-input-urlType').val(),
+                            command: $('#node-config-input-command').val(),
+                            args: $('#node-config-input-args').val(),
+                            headers: JSON.stringify(headers)
+                        })
+                    })
+                        .done(function (data) {
+                            const previous = node.discovered;
+                            node.discovered = data.tools || [];
+                            // Tools are never pre-selected: the user decides what to expose.
+                            // A selection made earlier for the same tool is respected.
+                            render(node.discovered);
+                            RED.notify(node.discovered.length + ' tool(s) discovered', 'success');
+                            void previous;
+                        })
+                        .fail(function (xhr) {
+                            const payload = (xhr.responseJSON) || {};
+                            RED.notify(payload.error || 'Could not reach the MCP server', 'error');
+                        })
+                        .always(function () {
+                            button.prop('disabled', false);
+                        });
+                }
+
+                $('#mcp-client-discover').on('click', discover);
+
+                // Typing a URL and leaving the field discovers the catalog, which saves the
+                // extra click. Only done when the value changed, so re-opening the dialog or
+                // pressing Discover manually does not duplicate requests.
+                let lastUrl = String($('#node-config-input-url').val() || '').trim();
+                $('#node-config-input-url').on('change blur', function () {
+                    if ($transport.val() === 'stdio') {
+                        return;
+                    }
+                    const value = String($(this).val() || '').trim();
+                    if (value && value !== lastUrl) {
+                        lastUrl = value;
+                        discover();
+                    }
+                });
+
+                node.editor = {
+                    save: function () {
+                        // The saved selection is the catalog filtered by the checkboxes. Tools
+                        // discovered in this session keep their selected state; before a
+                        // discovery the saved list is used as-is.
+                        const catalog = node.discovered || tools;
+                        const exposed = catalog
+                            .filter(function (tool) { return selected.has(tool.name); })
+                            .map(function (tool) {
+                                return {
+                                    tool: tool.name,
+                                    name: tool.name,
+                                    description: tool.description || '',
+                                    parameters: tool.parameters || { type: 'object', properties: {} }
+                                };
+                            });
+                        return { tools: JSON.stringify(exposed), headers: JSON.stringify(headers) };
+                    }
+                };
+            },
+            oneditsave: function () {
+                const saved = this.editor.save();
+                this.tools = saved.tools;
+                this.headers = saved.headers;
+                delete this.editor;
+                delete this.discovered;
+            },
+            oneditcancel: function () {
+                delete this.editor;
+                delete this.discovered;
+            }
+        });
+    }());
+</script>
+
+<style>
+    .mcp-client-tools-list { list-style: none; margin: 0!important; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid #d9d9d9; }
+    .mcp-client-tool-row { padding: 5px 8px; border-bottom: 1px solid #eee; }
+    .mcp-client-tool-row:last-child { border-bottom: none; }
+    .mcp-client-tool-head { display: flex; align-items: center; gap: 8px; }
+    .mcp-client-tool-head input { margin: 0; }
+    .mcp-client-tool-name { font-family: monospace; font-weight: 600; }
+    .mcp-client-tool-desc { color: #888; font-size: 12px; margin: 2px 0 0 8px; }
+    .mcp-client-empty { padding: 8px; color: #888; }
+    .mcp-header-list { list-style: none; margin: 0 !important; padding: 0; border: 1px solid #d9d9d9; }
+    .mcp-header-row { display: flex; gap: 6px; padding: 4px 6px; border-bottom: 1px solid #eee; align-items: center; }
+    .mcp-header-row:last-child { border-bottom: none; }
+    .mcp-header-name { flex: 0 0 34%; font-family: monospace; }
+    .mcp-header-value { flex: 1 1 auto; font-family: monospace; }
+    .mcp-header-empty { padding: 8px; color: #888; }
+</style>
+
+<script type="text/html" data-template-name="mcp-client">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="MCP server">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-transport"><i class="fa fa-exchange"></i> Transport</label>
+        <select id="node-config-input-transport">
+            <option value="http">HTTP (remote server)</option>
+            <option value="stdio">Command (local server)</option>
+        </select>
+    </div>
+    <div class="form-row mcp-http-row">
+        <label for="node-config-input-url"><i class="fa fa-plug"></i> URL</label>
+        <input type="text" id="node-config-input-url" placeholder="https://example.com/mcp">
+        <input type="hidden" id="node-config-input-urlType">
+    </div>
+    <div class="form-row mcp-stdio-row">
+        <label for="node-config-input-command"><i class="fa fa-terminal"></i> Command</label>
+        <input type="text" id="node-config-input-command" placeholder="npx">
+    </div>
+    <div class="form-row mcp-stdio-row">
+        <label for="node-config-input-args"><i class="fa fa-list"></i> Arguments</label>
+        <textarea id="node-config-input-args" rows="3" style="width: 100%;" placeholder="-y&#10;@modelcontextprotocol/server-filesystem&#10;/path/to/folder"></textarea>
+    </div>
+    <div class="form-tips mcp-stdio-row">One argument per line.</div>
+    <div class="form-row">
+        <label><i class="fa fa-lock"></i> Headers</label>
+        <ul class="mcp-header-list" id="mcp-headers"></ul>
+        <button type="button" class="red-ui-button" id="mcp-header-add" style="margin-top: 6px;"><i class="fa fa-plus"></i> Add header</button>
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+        <input type="text" id="node-config-input-timeout" style="width: 110px;">
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-wrench"></i> Tools to expose</label>
+        <ul class="mcp-client-tools-list" id="mcp-client-tools"></ul>
+        <div class="form-tips" style="margin: 10px 0px;">Only the selected tools are announced to the Agent. Discover them from the server; they are refreshed on every deploy.</div>
+        <button type="button" class="red-ui-button" id="mcp-client-discover" style="margin-top: 6px;margin-bottom: 10px;"><i class="fa fa-refresh"></i> Discover tools</button>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mcp-client">
+    <p>Connection to an external <a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer">MCP server</a>, used by the <b>MCP tool</b> node.</p>
+
+    <h3>Details</h3>
+    <p>The node keeps one session open while the flow runs, so tool calls do not pay for a handshake every time. A remote server is reached over HTTP with its <b>URL</b>; a local one is started with a <b>command</b> and its arguments (stdio).</p>
+    <p><b>Discover tools</b> asks the server for its catalog: replace the URL and press it, then tick the tools you want to expose. The selection is stored in the flow, so the Agent keeps the same tool list even if the server is unreachable when the flow deploys.</p>
+    <p>Headers are edited one row at a time (name and value). The URL accepts a typed value: a literal string, or a property of <code>msg</code>, <code>flow</code>, <code>global</code>, or an environment variable. A dynamic URL is resolved for every message.</p>
+    <p>Typing a URL and leaving the field discovers the catalog automatically; <b>Discover tools</b> repeats it at any time. No tool is selected by default: tick only what the agent should be able to call.</p>
+
+    <h3>References</h3>
+    <ul>
+        <li><a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer">Model Context Protocol</a></li>
+        <li><a href="https://docs.langchain.com/oss/javascript/langchain/mcp" target="_blank" rel="noreferrer">LangChain MCP adapters</a></li>
+    </ul>
+</script>

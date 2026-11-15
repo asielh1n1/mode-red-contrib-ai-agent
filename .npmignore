@@ -1,0 +1,33 @@
+# Everything the package needs is declared in the "files" field of package.json, so npm packs
+# only what the runtime and the editor load. This file lists what must never be published even if
+# the "files" list changes.
+
+# Development and CI
+test/
+.github/
+.vscode/
+.idea/
+
+# Local Node-RED runtime used while developing
+flows.json
+flows_cred.json
+.nodes.json
+settings.js
+.config.*.json
+.context/
+.storage/
+
+# Notes that are not part of the published documentation
+Node-RED-AI-Agents-Concepto.md
+
+# Tooling noise
+*.log
+*.tgz
+coverage/
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Lockfile: kept in git for reproducible installs, not needed by consumers
+package-lock.json

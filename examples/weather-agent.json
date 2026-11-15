@@ -1,0 +1,133 @@
+[
+    {
+        "id": "example-tab-weather",
+        "type": "tab",
+        "label": "AI Agent Weather",
+        "disabled": false,
+        "info": "Ask the agent for the weather. The agent calls the get_weather tool, the tool flow answers with a simulated value and the agent replies. Configure the DeepSeek model with your API key before deploying."
+    },
+    {
+        "id": "example-inject",
+        "type": "inject",
+        "z": "example-tab-weather",
+        "name": "Ask",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "session_id",
+                "v": "demo-session",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "What is the weather like in Madrid?",
+        "payloadType": "str",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            [
+                "example-agent"
+            ]
+        ]
+    },
+    {
+        "id": "example-agent",
+        "type": "ai-agent",
+        "z": "example-tab-weather",
+        "name": "Weather agent",
+        "model": "",
+        "modelMemory": "",
+        "sessionId": "session_id",
+        "sessionIdType": "msg",
+        "systemPrompt": "You are a concise weather assistant. Use the get_weather tool whenever the user asks about the weather.",
+        "recursionLimit": 10,
+        "maxToolCalls": 8,
+        "agentTimeout": 120000,
+        "x": 380,
+        "y": 120,
+        "wires": [
+            [
+                "example-debug-answer"
+            ],
+            [
+                "example-tool"
+            ]
+        ]
+    },
+    {
+        "id": "example-debug-answer",
+        "type": "debug",
+        "z": "example-tab-weather",
+        "name": "answer",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 620,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "example-tool",
+        "type": "ai-tool",
+        "z": "example-tab-weather",
+        "name": "get_weather",
+        "description": "Returns the current weather for a city. Use it whenever the user asks about weather conditions.",
+        "parameters": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"city\": { \"type\": \"string\", \"description\": \"City name, for example Madrid\" }\n  },\n  \"required\": [\"city\"]\n}",
+        "x": 630,
+        "y": 160,
+        "wires": [
+            [
+                "example-function-weather"
+            ]
+        ]
+    },
+    {
+        "id": "example-function-weather",
+        "type": "function",
+        "z": "example-tab-weather",
+        "name": "Simulated weather API",
+        "func": "const city = msg.payload.city;\nmsg.payload = { city, temperature: 24, conditions: 'sunny', source: 'simulated' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 160,
+        "wires": [
+            [
+                "example-tool-return"
+            ]
+        ]
+    },
+    {
+        "id": "example-tool-return",
+        "type": "ai-tool-return",
+        "z": "example-tab-weather",
+        "name": "Result",
+        "returnProperty": "payload",
+        "x": 1100,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "5fa200a39bbe2b1b",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-contrib-ai-agents": "1.0.0"
+        }
+    }
+]
