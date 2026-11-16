@@ -11,6 +11,11 @@
                 baseUrl: { value: '' },
                 apiKeyValue: { value: '' },
                 apiKeyValueType: { value: 'str' },
+                // The literal key itself. A credential must have an input with the same id as its
+                // name: Node-RED reads it when the dialog is saved, and a missing input would write
+                // the "has a password" marker as the credential value. The dialog's typed field
+                // (apiKeyValue) is the visible one; oneditsave copies it here.
+                apiKey: { value: '' },
                 model: { value: '' },
                 reasoningEffort: { value: 'auto' },
                 temperature: { value: '0.7' },
@@ -253,7 +258,16 @@
                 this.credentials = this.credentials || {};
                 if (type === 'str' && value) {
                     this.credentials.apiKey = value;
+                } else if (type === 'env') {
+                    // The key now comes from the environment: the stored literal is no longer used.
+                    this.credentials.apiKey = '';
+                } else if (this.credentials.apiKey === '__PWRD__' && !this.credentials.has_apiKey) {
+                    // A marker without a stored key is not a key: drop it instead of sending it.
+                    this.credentials.apiKey = '';
                 }
+                // Node-RED mirrors the credential input into the node on save, so the hidden field
+                // must carry the value that was just written, never the marker.
+                $('#node-config-input-apiKey').val(this.credentials.apiKey || '');
             }
         });
     }());
@@ -284,6 +298,9 @@
         <label for="node-config-input-apiKeyValue"><i class="fa fa-key"></i> API key</label>
         <input type="text" id="node-config-input-apiKeyValue" placeholder="sk-...">
         <input type="hidden" id="node-config-input-apiKeyValueType">
+        <!-- Node-RED reads the credential from the input whose id matches its name; the visible
+             field above is copied here when the dialog is saved. -->
+        <input type="hidden" id="node-config-input-apiKey">
     </div>
     <div class="form-row">
         <label for="node-config-input-model"><i class="fa fa-microchip"></i> Model</label>
