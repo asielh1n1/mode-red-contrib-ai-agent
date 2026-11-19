@@ -18,10 +18,12 @@ modelFactory.createModel.factory = (config) => {
 const registerAgent = require('../lib/agent');
 const registerTool = require('../lib/tool');
 const registerToolReturn = require('../lib/tool-return');
+const registerSubagent = require('../lib/subagent');
 const registerMemory = require('../lib/memory');
 const registerMcpClientTool = require('../lib/mcp-client-tool');
 const registerModel = require('../lib/model');
-const { registry } = require('../lib/registry');
+const { registry, TOOL_RESULT_TYPE } = require('../lib/registry');
+const { resolveTools } = require('../lib/agent-input');
 const { getCheckpointer } = require('../lib/checkpoint');
 
 function harness({ tools = [toolNode()], memory, script = ['unused'], ...agentOverrides } = {}) {
@@ -104,6 +106,7 @@ function harness({ tools = [toolNode()], memory, script = ['unused'], ...agentOv
   registerAgent(RED);
   registerTool(RED);
   registerToolReturn(RED);
+  registerSubagent(RED);
   registerMemory(RED);
   registerMcpClientTool(RED);
   registerModel(RED);
@@ -127,9 +130,40 @@ function harness({ tools = [toolNode()], memory, script = ['unused'], ...agentOv
   for (const config of tools) {
     // Node-RED sets node.z to the flow tab id; tests declare it on the fixture. The config
     // passed to the constructor must be the node's own config, not the registry entry.
-    const node = { id: config.id, z: config.z, on: () => {}, send: () => {} };
-    node.type = 'ai-tool';
-    nodes.get('ctor:ai-tool').constructor.call(node, { ...config, id: config.id, z: config.z });
+    const node = { id: config.id, z: config.z, on: () => {} };
+    node.type = config.type || 'ai-tool';
+    nodes.get(`ctor:${node.type}`).constructor.call(node, { ...config, id: config.id, z: config.z });
+    // Assigned after construction: RED.nodes.createNode copies the config over the object, so a
+    // send given before would be replaced. A Tool call is recorded, and onForward drives the flow.
+    node.send = (message) => {
+      node.sent = node.sent || [];
+      node.sent.push(message);
+      const outputs = Array.isArray(message) ? message.filter(Boolean) : [message];
+      for (const entry of outputs) {
+        if (entry && entry[TOOL_RESULT_TYPE] && node.onForward) {
+          node.onForward(entry);
+        }
+      }
+    };
+    // A subagent has one output, so its tools are wired to wires[0].
+    if (node.type === 'ai-subagent') {
+      node.wires = [config.toolWires || []];
+      // Stands in for the wire: a tool call leaves the subagent output and enters the Tool
+      // input of the wired Tool nodes, which is what Node-RED does.
+      node.send = (message) => {
+        node.sent = node.sent || [];
+        node.sent.push(message);
+        const outputs = Array.isArray(message) ? message.filter(Boolean) : [message];
+        for (const entry of outputs) {
+          for (const targetId of config.toolWires || []) {
+            const target = nodes.get(targetId);
+            if (target && entry[TOOL_RESULT_TYPE]) {
+              target.emit('input', entry, () => {}, () => {});
+            }
+          }
+        }
+      };
+    }
   }
 
   const AgentCtor = nodes.get('ctor:ai-agent').constructor;
@@ -150,6 +184,15 @@ function harness({ tools = [toolNode()], memory, script = ['unused'], ...agentOv
     http,
     setEnv: (name, value) => nodeRedEnv.set(name, value),
   };
+}
+
+// Text of a message, for assertions over model content.
+function textOf(message) {
+  if (!message) {
+    return '';
+  }
+  const { content } = message;
+  return typeof content === 'string' ? content : JSON.stringify(content);
 }
 
 function input(agent, msg) {
@@ -199,6 +242,117 @@ test('agent runs a Tool flow through output 2 and answers on output 1', async ()
   assert.ok(outgoing.length >= 1);
 });
 
+test('a subagent runs its own agent and answers the parent as a tool result', async () => {
+  // The parent delegates, the subagent calls its own tool and answers, and the parent finishes
+  // with the text the subagent returned. Both agents use the same model config here, so the
+  // scripted model is told apart by the conversation: the subagent's task is its first message.
+  const subTool = toolNode({ id: 'sub-tool', name: 'lookup', description: 'Looks up a fact', parameters: { type: 'object', properties: {} } });
+  const subagentNode = {
+    id: 'sub-1',
+    type: 'ai-subagent',
+    name: 'Research topics',
+    toolName: 'research_topics',
+    description: 'Researches a topic and returns a summary',
+    model: 'model-1',
+    systemPrompt: 'You are a researcher',
+    contextMode: 'isolated',
+    recursionLimit: 6,
+    maxToolCalls: 4,
+    toolTimeout: 60000,
+    agentTimeout: 5000,
+    toolWires: ['sub-tool'],
+  };
+  const { agent, nodes } = harness({
+    tools: [subagentNode, subTool],
+    // The parent model only delegates and then reports. The subagent has its own model below.
+    script: [toolCall('p1', 'research_topics', { task: 'tell me the weather in Madrid' }), (messages) => `Parent got: ${textOf(messages.at(-1))}`],
+  });
+  agent.wires = [['debug-answer'], ['sub-1']];
+
+  // The subagent's own tool answers through the engine that started the call. With the harness
+  // wire in place, the Tool node receives the call and its flow answers through this hook.
+  nodes.get('sub-tool').onForward = (message) => {
+    const call = message && message[TOOL_RESULT_TYPE];
+    if (call) {
+      setTimeout(() => agent._engine.resolveById('sub-tool', 'lookup result', call.callId), 5);
+    }
+  };
+
+  const msg = { payload: 'weather please', session_id: 'sub-session' };
+  // The subagent sees its own tool when the engine asks for it, not only when the test lists it.
+  const sub = nodes.get('sub-1');
+  assert.deepEqual(registry.connectedTo(sub).map((entry) => entry.toolName), ['lookup'], 'subagent tools');
+
+  // The subagent gets its own model: it calls the tool and answers with its result.
+  const subagentModel = fakeModel([
+    toolCall('s1', 'lookup', {}),
+    (messages) => {
+      const last = messages.at(-1);
+      const content = typeof last.content === 'string' ? last.content : JSON.stringify(last.content);
+      return content.includes('lookup result') ? 'sunny 24C' : content;
+    },
+  ]);
+  const factory = modelFactory.createModel.factory;
+  let subagentActive = false;
+  modelFactory.createModel.factory = () => (subagentActive ? subagentModel : scriptedModel);
+  const subExecute = sub._execute;
+  sub._execute = (toolName, input) => {
+    subagentActive = true;
+    return subExecute(toolName, input).finally(() => {
+      subagentActive = false;
+    });
+  };
+
+  try {
+    await input(agent, msg);
+  } finally {
+    modelFactory.createModel.factory = factory;
+    sub._execute = subExecute;
+  }
+  assert.equal(msg.payload, 'Parent got: sunny 24C', 'the subagent answer reaches the parent model');
+});
+
+test('a subagent resolves the tools wired to its single output', () => {  const subTool = toolNode({ id: 'sub-tool', name: 'Get task', toolName: 'get_task', description: 'Tasks' });
+  const subagentNode = {
+    id: 'sub-wired',
+    type: 'ai-subagent',
+    name: 'Task Resolve',
+    toolName: 'Lista Task',
+    description: 'Resolves tasks',
+    model: 'model-1',
+    contextMode: 'isolated',
+    recursionLimit: 4,
+    maxToolCalls: 2,
+    toolTimeout: 60000,
+    agentTimeout: 5000,
+    toolWires: ['sub-tool'],
+  };
+  const { agent, nodes } = harness({ tools: [subagentNode, subTool], script: ['ready'] });
+  agent.wires = [['debug-answer'], ['sub-wired']];
+
+  const sub = nodes.get('sub-wired');
+  assert.deepEqual(sub.wires, [['sub-tool']], 'a subagent has one output, so its tool is in wires[0]');
+  assert.equal(sub.toolName, 'lista_task', 'a human value saved as the tool name is normalised');
+  assert.deepEqual(resolveTools(sub).map((entry) => entry.toolName), ['get_task']);
+  const exposed = registry.connectedTo(agent);
+  assert.equal(exposed[0].toolName, 'lista_task', 'the parent sees the subagent as a tool');
+  assert.equal(exposed[0].description, 'Resolves tasks');
+});
+
+test('a human tool name becomes a valid technical name', () => {
+  const { toolNameFrom } = require('../lib/registry');
+  assert.equal(toolNameFrom('Get weather'), 'get_weather');
+  assert.equal(toolNameFrom('Mis Gastos'), 'mis_gastos');
+  assert.equal(toolNameFrom('Revisión de gastos'), 'revision_de_gastos');
+  assert.equal(toolNameFrom('Buscar  facturas 2026'), 'buscar_facturas_2026');
+  assert.equal(toolNameFrom('getWeather'), 'get_weather');
+  assert.equal(toolNameFrom('2026 report'), 'tool_2026_report', 'a name must start with a letter');
+  assert.equal(toolNameFrom('---'), 'tool', 'an empty result falls back to the fallback');
+  assert.equal(toolNameFrom(''), 'tool');
+  assert.equal(toolNameFrom('x'.repeat(120)).length, 64, 'the API limit is enforced');
+  assert.equal(toolNameFrom('Málaga: tiempo'), 'malaga_tiempo');
+});
+
 test('agent rejects a message without session id', async () => {
   const { agent } = harness();
   await assert.rejects(() => input(agent, { payload: 'hello' }), /session id/);
@@ -224,7 +378,8 @@ test('agent reports model errors through done()', async () => {
 test('tools are discovered from the wires of the tool output', () => {
   const { agent } = harness();
   assert.deepEqual(registry.connectedTo(agent).map((tool) => tool.id), ['tool-1']);
-  const listed = registry.listForAgent(agent);
+  // The registry is shared by the process, and other tests register tools in the same flow id.
+  const listed = registry.listForAgent(agent).filter((entry) => entry.id === 'tool-1');
   assert.equal(listed.length, 1);
   assert.equal(listed[0].sameFlow, true);
 });
@@ -303,26 +458,25 @@ test('memory keeps conversation history per session id', async () => {
   assert.equal(turns[1], 'system,human,ai,human', 'the second turn sees the saved conversation');
 });
 
-test('a Tool ignores a duplicate call while one is pending', () => {
+test('a second call for the same Tool runs its own flow and is answered by its own id', () => {
   const { agent, nodes } = harness({ script: ['unused'] });
   const tool = nodes.get('tool-1');
   let started = 0;
   tool.send = () => {
     started += 1;
   };
-  const callMessage = () => ({
-    'ai-agents/tool-result': { nodeId: 'tool-1', name: 'get_weather', redEngine: agent._engine },
+  const callMessage = (callId) => ({
+    'ai-agents/tool-result': { nodeId: 'tool-1', callId, name: 'get_weather', redEngine: agent._engine },
   });
 
-  tool.emit('input', callMessage(), () => {}, () => {});
+  tool.emit('input', callMessage('tool-1#1'), () => {}, () => {});
   assert.equal(started, 1, 'the matching call starts the tool flow');
   assert.equal(tool.statusHistory.at(-1).text, 'running');
 
-  // A second call for the same tool used to be taken as the result (badge stuck on running
-  // plus a warning on every run). It must be ignored while the first call is pending.
-  tool.emit('input', callMessage(), () => {}, () => {});
-  assert.equal(started, 1, 'the duplicate call does not start the flow again');
-  assert.equal(tool.statusHistory.at(-1).text, 'running');
+  // A parent agent and a subagent can call the same Tool at once: the second call must run its
+  // own flow instead of being dropped, and each one is answered through its own call id.
+  tool.emit('input', callMessage('tool-1#2'), () => {}, () => {});
+  assert.equal(started, 2, 'a second pending call runs its own flow');
 });
 
 test('a message for another tool leaves the badge untouched', () => {

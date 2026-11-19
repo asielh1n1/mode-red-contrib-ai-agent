@@ -1,0 +1,181 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        const NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
+
+        // The parent model only accepts snake_case tool names, so the human name is folded into
+        // one: "Research topics" -> "research_topics".
+        function toToolName(value, fallback) {
+            const folded = String(value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+            let name = folded
+                .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                .split(/[^A-Za-z0-9]+/)
+                .filter(Boolean)
+                .join('_')
+                .toLowerCase();
+            if (!/^[a-z]/.test(name) && name) {
+                name = (fallback + '_' + name).replace(/[^a-z0-9_]/g, '');
+            }
+            return name.slice(0, 64) || fallback;
+        }
+
+        RED.nodes.registerType('ai-subagent', {
+            category: 'ai agents',
+            color: '#9575cd',
+            defaults: {
+                name: { value: '', required: true },
+                toolName: { value: '' },
+                description: { value: '', required: true },
+                model: { value: '', type: 'ai-agent-model', required: true },
+                systemPrompt: { value: '' },
+                contextMode: { value: 'isolated' },
+                recursionLimit: { value: 10 },
+                maxToolCalls: { value: 8 },
+                toolTimeout: { value: 60000 },
+                agentTimeout: { value: 120000 }
+            },
+            inputs: 1,
+            outputs: 1,
+            icon: 'subagent.svg',
+            paletteLabel: 'subagent',
+            inputLabels: 'called by the agent',
+            outputLabels: 'tool calls',
+            label: function () {
+                return this.name || 'subagent';
+            },
+            labelStyle: function () {
+                return this.name ? 'node_label_italic' : '';
+            },
+            oneditprepare: function () {
+                const $name = $('#node-input-name');
+                const $toolName = $('#node-input-toolName');
+                let nameEdited = false;
+                // The technical field always holds a valid tool name, even when the value saved
+                // earlier was the human one or was empty.
+                if (!NAME_PATTERN.test(String($toolName.val() || '').trim())) {
+                    $toolName.val(toToolName($toolName.val() || $name.val(), 'subagent'));
+                }
+                $name.on('input', function () {
+                    if (!nameEdited) {
+                        $toolName.val(toToolName($name.val(), 'subagent'));
+                    }
+                });
+                $toolName.on('input', function () {
+                    nameEdited = true;
+                });
+            },
+            oneditsave: function () {
+                const typed = String($('#node-input-toolName').val() || '').trim();
+                this.toolName = NAME_PATTERN.test(typed) ? typed : toToolName(typed || this.name, 'subagent');
+                this.systemPrompt = $('#node-input-systemPrompt').val() || '';
+            }
+        });
+    }());
+</script>
+
+<style>
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
+</style>
+
+<script type="text/html" data-template-name="ai-subagent">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Node Name<span class="ai-agent-help" data-help="Any readable name, in any language. It is only the label of the node in the flow."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-name" placeholder="Research topics">
+    </div>
+    <div class="form-row">
+        <label for="node-input-toolName"><i class="fa fa-code"></i> Subagent name<span class="ai-agent-help" data-help="The name the parent model reads. Write it in natural language and it is converted to snake_case (Research topics becomes research_topics). Letters, digits and underscores, up to 64 characters."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-toolName" placeholder="research_topics">
+    </div>
+    <div class="form-row">
+        <label for="node-input-description"><i class="fa fa-info-circle"></i> Description<span class="ai-agent-help" data-help="What the subagent does and when the parent should delegate to it. This text is the only thing the parent model sees, so be concrete: Researches a topic in depth and returns a summary."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-description" placeholder="Researches a topic in depth and returns a summary">
+    </div>
+    <div class="form-row">
+        <label for="node-input-model"><i class="fa fa-microchip"></i> Model<span class="ai-agent-help" data-help="The model the subagent uses, independent of the parent agent. Use a smaller or cheaper one for narrow tasks."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-model">
+    </div>
+    <div class="form-row">
+        <label for="node-input-contextMode"><i class="fa fa-random"></i> Context<span class="ai-agent-help" data-help="Isolated sends only the task the parent wrote, which keeps the subagent cheap and focused. Fork also sends the parent message, so the subagent can see the conversation that led to the call."><i class="fa fa-question-circle"></i></span></label>
+        <select id="node-input-contextMode">
+            <option value="isolated">Isolated: only the task</option>
+            <option value="fork">Fork: the task plus the parent message</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-systemPrompt"><i class="fa fa-quote-left"></i> System prompt<span class="ai-agent-help" data-help="The instructions of the subagent. It is a separate agent, so it does not inherit the prompt of the parent: write here its role, its limits and the shape of the answer it must return."><i class="fa fa-question-circle"></i></span></label>
+        <textarea id="node-input-systemPrompt" rows="6" style="width: 100%; resize: vertical;"
+            placeholder="You are a specialized researcher."></textarea>
+    </div>
+    <div class="form-row" style="margin-top: 10px;">
+        <label for="node-input-recursionLimit"><i class="fa fa-sitemap"></i> Reasoning steps<span class="ai-agent-help" data-help="How many times the subagent may go back to the model. A task that calls one tool usually needs 2 or 3."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-recursionLimit">
+    </div>
+    <div class="form-row">
+        <label for="node-input-maxToolCalls">Tool calls<span class="ai-agent-help" data-help="Maximum number of tools the subagent may invoke for one task. The tools it can use are the ones wired to its own tool calls output."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-maxToolCalls">
+    </div>
+    <div class="form-row">
+        <label for="node-input-toolTimeout"><i class="fa fa-hourglass-half"></i> Tool timeout (ms)<span class="ai-agent-help" data-help="How long one of its tool flows may take before the subagent receives a cancelled result. Keep it below Timeout."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-toolTimeout">
+    </div>
+    <div class="form-row">
+        <label for="node-input-agentTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="Upper bound for the whole subagent run. Keep it below the Timeout of the parent agent: when the parent gives up, the call is closed as cancelled."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-agentTimeout">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="ai-subagent">
+    <p>Runs a whole agent of its own as a tool of another agent.</p>
+
+    <h3>Details</h3>
+    <p>The parent agent only sees a tool with the <b>Tool name</b> and <b>Description</b> written here. When the parent model calls it, the subagent runs its own reasoning with its own <b>Model</b>, <b>System prompt</b> and tools, and the final answer is returned to the parent as the tool result.</p>
+    <p>Wire the subagent to the <b>tool calls</b> output of the agent that may delegate to it, and wire the tools of the subagent to <b>its own</b> output. Each tool of the subagent still ends in a <b>Tool Return</b>.</p>
+    <p>There is no answer output: the subagent answers the call in place, so it needs no Tool Return and can never leave the parent waiting.</p>
+    <p><b>Context</b> decides what the subagent reads. <i>Isolated</i> only gives it the task the parent model wrote, which keeps the parent context clean and is the recommended mode. <i>Fork</i> adds the text of the message that started the parent run, so the subagent can continue a conversation the parent already had.</p>
+    <p>The properties of the message that reached the parent are available to the subagent's tools, exactly like in a Tool. Each call runs isolated: the subagent does not keep a conversation between calls.</p>
+    <p>Delegating to a subagent takes longer than a simple tool, because it is a full model loop. Keep its <b>Timeout</b> below the parent's one and give it <b>Tool timeout</b> for the situations where its own tools stop answering.</p>
+    <p>Subagents can be wired to other subagents. Keep the chain short: each delegate level adds latency and tokens.</p>
+</script>

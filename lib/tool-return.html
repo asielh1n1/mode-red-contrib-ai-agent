@@ -26,15 +26,57 @@
 
 <script type="text/html" data-template-name="ai-tool-return">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="A label for the node in the palette and in the flow. It does not change the behaviour."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-name" placeholder="Result">
     </div>
     <div class="form-row">
-        <label for="node-input-returnProperty"><i class="fa fa-reply"></i> Result property</label>
+        <label for="node-input-returnProperty"><i class="fa fa-reply"></i> Result property<span class="ai-agent-help" data-help="The property of the message that is returned to the model, with dot notation: payload or payload.data. Arrays and objects are serialized for the model."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-returnProperty" placeholder="payload">
     </div>
-    <div class="form-tips">Dot notation is allowed, for example <code>payload.data</code>. Strings and objects are passed to the agent as-is.</div>
 </script>
+
+<style>
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
+</style>
 
 <script type="text/html" data-help-name="ai-tool-return">
     <p>Returns the result of a tool flow to the agent that called it.</p>
@@ -42,6 +84,7 @@
     <h3>Details</h3>
     <p>Place it at the end of every Tool flow. The node resolves the pending tool call in place and the agent continues its reasoning with the result, so no extra wiring back to the Agent is needed.</p>
     <p>The <b>Result property</b> selects the value to return (for example <code>payload</code> or <code>payload.data</code>). Arrays and objects are serialized for the model.</p>
+    <p>Only the property named there travels back to the model: other properties the flow added (<code>msg.user</code>, for example) stay in the flow, and the copy of the Agent message that started the tool call is discarded when the call ends.</p>
     <p>If the agent already timed out or the call was resolved twice, the node shows a short notification instead of failing the flow.</p>
     <p>The status badge confirms the call for a moment and is then removed.</p>
 </script>

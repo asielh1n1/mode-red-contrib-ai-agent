@@ -98,13 +98,57 @@
     }());
 </script>
 
+<style>
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
+</style>
+
 <script type="text/html" data-template-name="ai-agent-memory">
     <div class="form-row">
-        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="The label of this memory configuration in the agent Memory field. It does not change the stored data."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-name" placeholder="Conversation memory">
     </div>
     <div class="form-row">
-        <label for="node-config-input-memoryKind"><i class="fa fa-database"></i> Storage</label>
+        <label for="node-config-input-memoryKind"><i class="fa fa-database"></i> Storage<span class="ai-agent-help" data-help="Conversation memory keeps the sessions while Node-RED runs and loses them on restart. Postgres and Redis keep them across restarts and deploys, and are the choice for anything that must remember."><i class="fa fa-question-circle"></i></span></label>
         <select id="node-config-input-memoryKind">
             <option value="ram">Conversation memory</option>
             <option value="postgres">Postgres</option>
@@ -112,20 +156,20 @@
         </select>
     </div>
     <div class="form-row ai-agent-memory-storage-row">
-        <label for="node-config-input-databaseUrl"><i class="fa fa-plug"></i> URL</label>
+        <label for="node-config-input-databaseUrl"><i class="fa fa-plug"></i> URL<span class="ai-agent-help" data-help="The connection string of the database, for example postgres://user:password@host:5432/database or redis://host:6379. It accepts a credential type, so the value can come from a Node-RED credential."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-databaseUrl">
         <input type="hidden" id="node-config-input-databaseUrlType">
     </div>
     <div class="form-row ai-agent-memory-storage-row ai-agent-memory-password-row">
-        <label for="node-config-input-databasePassword"><i class="fa fa-lock"></i> Password</label>
+        <label for="node-config-input-databasePassword"><i class="fa fa-lock"></i> Password<span class="ai-agent-help" data-help="Optional. Overrides the password written in the URL, stored encrypted as a Node-RED credential. Useful when the URL must stay readable but the secret must not."><i class="fa fa-question-circle"></i></span></label>
         <input type="password" id="node-config-input-databasePassword" placeholder="Optional, overrides the URL password">
     </div>
     <div class="form-row ai-agent-memory-schema-row">
-        <label for="node-config-input-memorySchema"><i class="fa fa-cubes"></i> Schema</label>
+        <label for="node-config-input-memorySchema"><i class="fa fa-cubes"></i> Schema<span class="ai-agent-help" data-help="The Postgres schema where the tables are created. Defaults to public. Use a separate schema to keep the agent tables apart from the rest of the database."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-memorySchema" placeholder="public">
     </div>
     <div class="form-row">
-        <label for="node-config-input-contextWindow"><i class="fa fa-window-maximize"></i> Context window length</label>
+        <label for="node-config-input-contextWindow"><i class="fa fa-window-maximize"></i> Context window length<span class="ai-agent-help" data-help="How many recent messages are sent to the model on every call. Older messages stay stored but are left out, which keeps the prompt (and the cost) bounded. 0 sends the whole conversation."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-contextWindow"  placeholder="0" value="10">
     </div>
     <div class="form-row ai-agent-memory-storage-row">

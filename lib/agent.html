@@ -14,6 +14,7 @@
                 systemPrompt: { value: '' },
                 recursionLimit: { value: 10 },
                 maxToolCalls: { value: 8 },
+                toolTimeout: { value: 60000 },
                 agentTimeout: { value: 120000 }
             },
             inputs: 1,
@@ -42,40 +43,107 @@
     }());
 </script>
 
+<style>
+    /* Label above its control, both full width (same rules as the guardrails editor). */
+    .red-ui-editor .form-row input, .red-ui-editor .form-row div[contenteditable=true], .red-ui-editor-dialog .form-row input, .red-ui-editor-dialog .form-row div[contenteditable=true]{
+        width: 100% !important;
+    }
+
+    .red-ui-editor .form-row label, .red-ui-editor-dialog .form-row label{
+        width: 100% !important;
+    }
+
+    .red-ui-editor select, .red-ui-editor-dialog select{
+        width: 100% !important;
+    }
+
+    .ui-widget.ui-widget-content {
+        width: 100% !important;
+    }
+
+    .red-ui-typedInput-container {
+        width: 100% !important;
+    }
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
+</style>
+
 <script type="text/html" data-template-name="ai-agent">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="A label for the node in the palette and in the flow. It does not change the behaviour."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-name" placeholder="Agent">
     </div>
     <div class="form-row">
-        <label for="node-input-model"><i class="fa fa-microchip"></i> Model</label>
+        <label for="node-input-model"><i class="fa fa-microchip"></i> Model<span class="ai-agent-help" data-help="The model configuration this agent uses. It needs a tool-capable model to call Tool nodes."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-model">
     </div>
     <div class="form-row">
-        <label for="node-input-modelMemory"><i class="fa fa-database"></i> Memory</label>
+        <label for="node-input-modelMemory"><i class="fa fa-database"></i> Memory<span class="ai-agent-help" data-help="Optional memory configuration: it keeps the conversation per Session id. Without it every message is an independent model call."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-modelMemory">
     </div>
     <div class="form-row">
-        <label for="node-input-sessionId"><i class="fa fa-key"></i> Session id</label>
+        <label for="node-input-sessionId"><i class="fa fa-key"></i> Session id<span class="ai-agent-help" data-help="Which conversation a message belongs to. Pick msg, flow, global or env and write the property name, or string for a fixed id. The same id on every message is what makes the agent remember."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-sessionId" placeholder="session_id">
         <input type="hidden" id="node-input-sessionIdType">
     </div>
     <div class="form-row">
-        <label for="node-input-systemPrompt"><i class="fa fa-quote-left"></i> System prompt</label>
+        <label for="node-input-systemPrompt"><i class="fa fa-quote-left"></i> System prompt<span class="ai-agent-help" data-help="Base instructions for the agent. If the incoming message carries msg.system_prompt (and it is not blank), that value is used instead, which is how a flow sends a long prompt built by another node."><i class="fa fa-question-circle"></i></span></label>
         <textarea id="node-input-systemPrompt" rows="6" style="width: 100%; resize: vertical;"
             placeholder="You are a helpful assistant."></textarea>
     </div>
-    <div class="form-tips">If the incoming message carries <code>msg.system_prompt</code>, that value is used instead of this text. Handy for long prompts built by another node.</div>
     <div class="form-row" style="margin-top: 10px;">
-        <label for="node-input-recursionLimit"><i class="fa fa-sitemap"></i> Reasoning steps</label>
+        <label for="node-input-recursionLimit"><i class="fa fa-sitemap"></i> Reasoning steps<span class="ai-agent-help" data-help="Cap on how many times the agent may go back to the model (LangGraph recursionLimit). Each round is one step: the model thinks, optionally calls a tool, and thinks again. A message that calls one tool usually needs 2 or 3."><i class="fa fa-question-circle"></i></span></label>
         <input type="number" id="node-input-recursionLimit">
     </div>
     <div class="form-row">
-        <label for="node-input-maxToolCalls">Tool calls</label>
+        <label for="node-input-maxToolCalls">Tool calls<span class="ai-agent-help" data-help="Maximum number of tools a single message may invoke, in one round or across rounds. It stops a model that keeps calling the same tool forever; the tools offered to the model are decided by the wiring of output 2."><i class="fa fa-question-circle"></i></span></label>
         <input type="number" id="node-input-maxToolCalls">
     </div>
     <div class="form-row">
-        <label for="node-input-agentTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
+        <label for="node-input-toolTimeout"><i class="fa fa-hourglass-half"></i> Tool timeout (ms)<span class="ai-agent-help" data-help="How long a tool flow may take before the model receives a cancelled result. Keep it below the agent Timeout: a tool call saved without a result is what makes the provider reject the conversation."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-toolTimeout">
+    </div>
+    <div class="form-row">
+        <label for="node-input-agentTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="Upper bound for the whole run, in milliseconds. When it expires the message fails with did not finish within, and the next message repairs the session so it stays usable."><i class="fa fa-question-circle"></i></span></label>
         <input type="number" id="node-input-agentTimeout">
     </div>
 </script>
@@ -93,7 +161,7 @@
         <dt>1. answer <span class="property-type">message</span></dt>
         <dd>The received message with <code>payload</code> replaced by the final answer and <code>session_id</code> set.</dd>
         <dt>2. tool calls <span class="property-type">message</span></dt>
-        <dd>One message per tool call. <code>payload</code> holds the arguments the model chose and <code>msg["ai-agents/tool-result"].name</code> is the tool name. Wire it to every Tool node you want to expose.</dd>
+        <dd>One message per tool call. It is a copy of the message that entered the node (custom properties, <code>_msgid</code>, <code>_user</code>, <code>session_id</code>) with <code>payload</code> replaced by the arguments the model chose; <code>msg["ai-agents/tool-result"].name</code> is the tool name. Wire it to every Tool node you want to expose.</dd>
     </dl>
 
     <h3>Details</h3>
@@ -104,6 +172,7 @@
     <p>Tool calls are asynchronous: when the Tool flow ends, the result is handed back to the agent and the reasoning continues.</p>
     <p><b>Reasoning steps</b> is the cap on how many times the agent may go back to the model. Each round is one step: the model thinks, optionally asks for a tool, the result comes back, and the model thinks again. A message that calls no tool needs 1, a message that calls one tool usually needs 2 or 3. It maps to LangGraph's <code>recursionLimit</code>, so raising it allows longer tool chains and lowering it cuts off loops sooner.</p>
     <p><b>Tool calls</b> is a different cap: the maximum number of tools a single message may invoke, either in one round (several calls at once) or across rounds. It stops a model that keeps calling the same tool forever. It does not limit how many tools the node exposes; that is decided by the wiring and by the MCP connection.</p>
+    <p><b>Tool timeout</b> closes a tool flow that stops answering before the whole run times out. The model receives a "cancelled" result, so it can explain the problem or try again instead of the message failing. Keep it below <i>Timeout</i>: a tool call saved without a result is what makes the provider reject the conversation. A <b>Catch</b> node in the tool flow is still the best way to return a meaningful error.</p>
     <p>The whole run is also bounded by <i>Timeout</i>.</p>
     <p>Errors are reported with <code>node.error</code> so <b>Catch</b> nodes can handle them, and the status shows <i>thinking</i> while it works, <i>done</i> when it answers and <i>model error</i> when it fails; the badge is then removed.</p>
     <p>Requires Node-RED 5 and Node.js 22.9 or later (the Node-RED 5 minimum).</p>

@@ -5,6 +5,53 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **guardrails** node: checks a message before the agent with deterministic rules (max length,
+  blocked words, blocked patterns) and an optional model verdict, and branches to `pass` or
+  `blocked`. Every failure blocks (fail-closed). On the blocked output the rejected text can be
+  replaced by a short message and kept apart in `msg['ai-agents/blocked-payload']`.
+- **subagent** node: runs a whole agent (its own model, system prompt and tools) as a tool of
+  another agent. It answers the call in place, so it needs no Tool Return, and its tools keep using
+  their own Tool Return nodes. *Isolated* mode passes only the delegated task; *fork* also passes
+  the text of the parent message.
+- **Name** on the **tool** node accepts natural language: "Get weather" becomes `get_weather`. The
+  technical name is shown (and editable) in the new **Tool name** field, and existing flows keep
+  working because it is derived from the name they already had.
+
+### Fixed
+
+- Tool calls receive a copy of the message that entered the Agent, so properties such as
+  `msg.user` (and any other custom property) are available inside the Tool flow. Before, only
+  `path` reached the tool. Each call gets its own object, so one tool cannot change the data read
+  by another tool of the same turn or the answer.
+- A session whose history ends with a tool call without a result (an agent timeout, a cancel or a
+  redeploy during a tool flow) no longer fails every following message with *"An assistant message
+  with 'tool_calls' must be followed by tool messages"*. The missing calls are closed in the saved
+  state when the session is used again, and the Agent shows a warning.
+- Pending tool calls are answered with a "cancelled" result before the run is aborted, so a run that
+  ends on a tool step keeps a valid conversation.
+- **guardrails**: a custom **System prompt** no longer breaks the node. The text is now the
+  *policy* and the node appends the JSON contract to it, so writing a rule in natural language
+  ("no permitas faltas de respeto") no longer makes every message fail with *"The guardrail model
+  did not answer with JSON"*.
+- **guardrails**: the answer budget is 1024 tokens instead of 128. A thinking model such as
+  `deepseek-flash` spent the whole budget on hidden reasoning and returned empty content, which
+  was also reported as *"did not answer with JSON"*. The error now names the real cause and shows
+  the text the model actually sent.
+
+### Added
+
+- **Tool timeout** on the agent: a tool flow that stops answering is closed with a "cancelled"
+  result the model can read, instead of holding the run until the whole run times out.
+
+### Documentation
+
+- The **tool** node help and the README describe the best practice of catching errors in the tool
+  flow and returning a message to the model through the **tool return**.
+
 ## [1.0.0]
 
 First stable release.

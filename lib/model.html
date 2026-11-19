@@ -279,23 +279,64 @@
     .ai-agent-model-row:last-child { border-bottom: none; }
     .ai-agent-model-row button { font-family: monospace; }
     .ai-agent-model-empty { padding: 6px; color: #888; }
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
 </style>
 
 <script type="text/html" data-template-name="ai-agent-model">
     <div class="form-row">
-        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="The label of this configuration in the palette and in the agent Model field. Use one configuration per model and purpose: a cheap one, a reasoning one, a vision one."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-name" placeholder="Model">
     </div>
     <div class="form-row">
-        <label for="node-config-input-provider"><i class="fa fa-cloud"></i> Provider</label>
+        <label for="node-config-input-provider"><i class="fa fa-cloud"></i> Provider<span class="ai-agent-help" data-help="Which LangChain integration is used. Each provider has its own default endpoint, so change Base URL only for a proxy, a gateway or a self-hosted server."><i class="fa fa-question-circle"></i></span></label>
         <select id="node-config-input-provider"></select>
     </div>
     <div class="form-row">
-        <label for="node-config-input-baseUrl"><i class="fa fa-globe"></i> Base URL</label>
+        <label for="node-config-input-baseUrl"><i class="fa fa-globe"></i> Base URL<span class="ai-agent-help" data-help="Optional. Leave it empty to use the provider's own endpoint. Fill it for a proxy, an OpenAI-compatible gateway or a local server such as Ollama or LM Studio."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-baseUrl" placeholder="Leave empty to use the provider's endpoint">
     </div>
     <div class="form-row">
-        <label for="node-config-input-apiKeyValue"><i class="fa fa-key"></i> API key</label>
+        <label for="node-config-input-apiKeyValue"><i class="fa fa-key"></i> API key<span class="ai-agent-help" data-help="The credential, stored encrypted as a Node-RED credential and never exported with the flow. Write a value, or env:VARIABLE to read it from an environment variable, or leave it empty to use the variable the provider's client already reads."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-apiKeyValue" placeholder="sk-...">
         <input type="hidden" id="node-config-input-apiKeyValueType">
         <!-- Node-RED reads the credential from the input whose id matches its name; the visible
@@ -303,29 +344,28 @@
         <input type="hidden" id="node-config-input-apiKey">
     </div>
     <div class="form-row">
-        <label for="node-config-input-model"><i class="fa fa-microchip"></i> Model</label>
+        <label for="node-config-input-model"><i class="fa fa-microchip"></i> Model<span class="ai-agent-help" data-help="The model name exactly as the provider documents it, for example gpt-4o-mini or deepseek-chat. Use List models to copy a valid one. An agent needs a model that supports tool calls."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-model" placeholder="Type the exact model name">
     </div>
-    <div class="form-tips">Type the model name exactly as the provider documents it. Use <b>List models</b> to ask the provider for the names it currently offers.</div>
     <ul class="ai-agent-model-list" id="ai-agent-model-list"></ul>
     <div class="form-row">
         <button type="button" class="red-ui-button" id="ai-agent-model-fetch"><i class="fa fa-search"></i> List models</button>
     </div>
     <div class="form-row">
-        <label for="node-config-input-reasoningEffort"><i class="fa fa-brain"></i> Reasoning effort</label>
+        <label for="node-config-input-reasoningEffort"><i class="fa fa-brain"></i> Reasoning effort<span class="ai-agent-help" data-help="How much the model is allowed to think before answering, for the models that expose this option. Higher values give better plans for long tool chains and cost more; None uses the provider's default."><i class="fa fa-question-circle"></i></span></label>
         <select id="node-config-input-reasoningEffort"></select>
     </div>
     <div class="form-row">
-        <label for="node-config-input-temperature"><i class="fa fa-thermometer-half"></i> Temperature</label>
-        <input type="text" id="node-config-input-temperature" style="width: 110px;" placeholder="0.7">
+        <label for="node-config-input-temperature"><i class="fa fa-thermometer-half"></i> Temperature<span class="ai-agent-help" data-help="Randomness of the answer, from 0 to 2. Low values are predictable, which suits tool calls and classification; high values give more variety, which suits creative writing. Leave empty to use the provider's default."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-temperature" placeholder="0.7">
     </div>
     <div class="form-row">
-        <label for="node-config-input-maxTokens"><i class="fa fa-align-left"></i> Max tokens</label>
-        <input type="text" id="node-config-input-maxTokens" style="width: 110px;" placeholder="2048">
+        <label for="node-config-input-maxTokens"><i class="fa fa-align-left"></i> Max tokens<span class="ai-agent-help" data-help="Cap on the length of the answer of a single model call, in tokens. It does not limit the whole conversation. Leave empty to use the provider's default."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-maxTokens" placeholder="2048">
     </div>
     <div class="form-row">
-        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
-        <input type="text" id="node-config-input-timeout" style="width: 110px;" placeholder="60000">
+        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long one model request may take, in milliseconds. It is the HTTP timeout of the provider call. Keep it below the Timeout of the agent that uses this model."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-timeout" placeholder="60000">
     </div>
     <div class="form-row">
         <button type="button" class="red-ui-button" id="ai-agent-model-check"><i class="fa fa-check"></i> Check configuration</button>

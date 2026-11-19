@@ -83,19 +83,60 @@
     .mcp-tool-desc { display: block; color: #888; font-size: 12px; }
     .mcp-tool-empty { padding: 8px; color: #888; }
     .mcp-tool-count { color: #888; font-size: 12px; margin-left: 6px; }
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
 </style>
 
 <script type="text/html" data-template-name="mcp-client-tool">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="A label for the node in the palette and in the flow. It does not change the tools that are exposed."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-name" placeholder="MCP tools">
     </div>
     <div class="form-row">
-        <label for="node-input-connection"><i class="fa fa-plug"></i> Connection</label>
+        <label for="node-input-connection"><i class="fa fa-plug"></i> Connection<span class="ai-agent-help" data-help="The MCP client configuration that reaches the server. Changing it reloads the catalog below, so pick the connection before ticking the tools."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-connection">
     </div>
     <div class="form-row">
-        <label><i class="fa fa-wrench"></i> Exposed tools <span class="mcp-tool-count" id="mcp-tool-count"></span></label>
+        <label><i class="fa fa-wrench"></i> Exposed tools<span class="ai-agent-help" data-help="The tools of the server this node announces to the agent. Tick only what the agent should be able to call: every ticked tool costs prompt tokens on each model call."><i class="fa fa-question-circle"></i></span> <span class="mcp-tool-count" id="mcp-tool-count"></span></label>
         <ul class="mcp-tool-list" id="mcp-tool-exposed"></ul>
     </div>
 </script>

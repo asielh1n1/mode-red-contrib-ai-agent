@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-ai-agents",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Visual AI agents for Node-RED: Agent, Tool and Tool Return nodes built on LangChain.js and LangGraph, with DeepSeek, OpenAI, Anthropic, Gemini and OpenRouter models, conversation memory and MCP tools",
   "license": "Apache-2.0",
   "author": "Asiel Hernandez Valdes <asielhv@gmail.com>",
@@ -71,6 +71,8 @@
       "ai-agent-memory": "lib/memory.js",
       "ai-tool": "lib/tool.js",
       "ai-tool-return": "lib/tool-return.js",
+      "ai-subagent": "lib/subagent.js",
+      "ai-guardrails": "lib/guardrails.js",
       "mcp-client": "lib/mcp-client.js",
       "mcp-client-tool": "lib/mcp-client-tool.js",
       "ai-agent": "lib/agent.js"

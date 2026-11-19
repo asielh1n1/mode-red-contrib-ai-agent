@@ -241,47 +241,86 @@
     .mcp-header-name { flex: 0 0 34%; font-family: monospace; }
     .mcp-header-value { flex: 1 1 auto; font-family: monospace; }
     .mcp-header-empty { padding: 8px; color: #888; }
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
 </style>
 
 <script type="text/html" data-template-name="mcp-client">
     <div class="form-row">
-        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="The label of this connection in the palette and in the MCP tool node field. It does not change the server it reaches."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-name" placeholder="MCP server">
     </div>
     <div class="form-row">
-        <label for="node-config-input-transport"><i class="fa fa-exchange"></i> Transport</label>
+        <label for="node-config-input-transport"><i class="fa fa-exchange"></i> Transport<span class="ai-agent-help" data-help="HTTP reaches a remote server through its URL. Command starts a local server as a child process and talks to it over stdin/stdout, which is the usual way for npx based servers."><i class="fa fa-question-circle"></i></span></label>
         <select id="node-config-input-transport">
             <option value="http">HTTP (remote server)</option>
             <option value="stdio">Command (local server)</option>
         </select>
     </div>
     <div class="form-row mcp-http-row">
-        <label for="node-config-input-url"><i class="fa fa-plug"></i> URL</label>
+        <label for="node-config-input-url"><i class="fa fa-plug"></i> URL<span class="ai-agent-help" data-help="The endpoint of the remote server, for example https://example.com/mcp. It accepts a credential type, so the address can come from msg, flow, global, env or a Node-RED credential."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-url" placeholder="https://example.com/mcp">
         <input type="hidden" id="node-config-input-urlType">
     </div>
     <div class="form-row mcp-stdio-row">
-        <label for="node-config-input-command"><i class="fa fa-terminal"></i> Command</label>
+        <label for="node-config-input-command"><i class="fa fa-terminal"></i> Command<span class="ai-agent-help" data-help="The executable of the local server, for example npx, node or python. It must be on the PATH of the Node-RED process, which is not the same as your terminal when Node-RED runs as a service."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-config-input-command" placeholder="npx">
     </div>
     <div class="form-row mcp-stdio-row">
-        <label for="node-config-input-args"><i class="fa fa-list"></i> Arguments</label>
+        <label for="node-config-input-args"><i class="fa fa-list"></i> Arguments<span class="ai-agent-help" data-help="One argument per line. Quotes are not needed: a line is passed as a single argument, so a path with spaces stays a path with spaces."><i class="fa fa-question-circle"></i></span></label>
         <textarea id="node-config-input-args" rows="3" style="width: 100%;" placeholder="-y&#10;@modelcontextprotocol/server-filesystem&#10;/path/to/folder"></textarea>
     </div>
-    <div class="form-tips mcp-stdio-row">One argument per line.</div>
     <div class="form-row">
-        <label><i class="fa fa-lock"></i> Headers</label>
+        <label><i class="fa fa-lock"></i> Headers<span class="ai-agent-help" data-help="Extra HTTP headers sent on every request, name and value per row. Use them for an API token or a tenant id the server requires. They apply to the HTTP transport only."><i class="fa fa-question-circle"></i></span></label>
         <ul class="mcp-header-list" id="mcp-headers"></ul>
         <button type="button" class="red-ui-button" id="mcp-header-add" style="margin-top: 6px;"><i class="fa fa-plus"></i> Add header</button>
     </div>
     <div class="form-row">
-        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)</label>
-        <input type="text" id="node-config-input-timeout" style="width: 110px;">
+        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long to wait for the server, in milliseconds, when listing tools and when calling one. Keep it below the Tool timeout of the agent so an unresponsive server fails as a tool error instead of a stalled run."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-timeout">
     </div>
     <div class="form-row">
-        <label><i class="fa fa-wrench"></i> Tools to expose</label>
+        <label><i class="fa fa-wrench"></i> Tools to expose<span class="ai-agent-help" data-help="The catalog of the server, filled by Discover tools. Tick only the tools the agent should be able to call: each one is announced to the model and costs prompt tokens. The selection is saved in the flow, so it survives a server that is down at deploy time."><i class="fa fa-question-circle"></i></span></label>
         <ul class="mcp-client-tools-list" id="mcp-client-tools"></ul>
-        <div class="form-tips" style="margin: 10px 0px;">Only the selected tools are announced to the Agent. Discover them from the server; they are refreshed on every deploy.</div>
         <button type="button" class="red-ui-button" id="mcp-client-discover" style="margin-top: 6px;margin-bottom: 10px;"><i class="fa fa-refresh"></i> Discover tools</button>
     </div>
 </script>

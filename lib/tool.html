@@ -4,6 +4,24 @@
 
         const NAME_PATTERN = /^[a-z][a-z0-9_]{0,63}$/;
         const PARAM_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+        // Providers only accept snake_case tool names. The user writes a human name and this
+        // turns it into the name the model reads; accents are folded instead of dropped.
+        function toToolName(value, fallback) {
+            const folded = String(value || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+            let name = folded
+                .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+                .split(/[^A-Za-z0-9]+/)
+                .filter(Boolean)
+                .join('_')
+                .toLowerCase();
+            if (!/^[a-z]/.test(name) && name) {
+                name = (fallback + '_' + name).replace(/[^a-z0-9_]/g, '');
+            }
+            return name.slice(0, 64) || fallback;
+        }
         const TYPES = [
             { value: 'string', label: 'text' },
             { value: 'number', label: 'number' },
@@ -60,9 +78,8 @@
             category: 'ai agents',
             color: '#aed581',
             defaults: {
-                name: { value: '', required: true, validate: function (value) {
-                    return NAME_PATTERN.test(String(value || '').trim());
-                } },
+                name: { value: '', required: true },
+                toolName: { value: '' },
                 description: { value: '', required: true },
                 parameters: { value: '' }
             },
@@ -89,6 +106,23 @@
                 const $list = $('#ai-agent-tool-params');
                 const node = this;
 
+                // The technical name follows the human one until the user edits it by hand.
+                const $name = $('#node-input-name');
+                const $toolName = $('#node-input-toolName');
+                let nameEdited = false;
+                // A value saved by an older dialog (or typed as a human name) is normalised here.
+                if (!NAME_PATTERN.test(String($toolName.val() || '').trim())) {
+                    $toolName.val(toToolName($toolName.val() || $name.val(), 'tool'));
+                }
+                $name.on('input', function () {
+                    if (!nameEdited) {
+                        $toolName.val(toToolName($name.val(), 'tool'));
+                    }
+                });
+                $toolName.on('input', function () {
+                    nameEdited = true;
+                });
+
                 function render() {
                     $list.empty();
                     if (!params.length) {
@@ -104,7 +138,7 @@
                             $type.append($('<option></option>').val(entry.value).text(entry.label));
                         });
                         $type.val(param.type).on('change', function () { param.type = $(this).val(); });
-                        const $required = $('<input type="checkbox" style="width: 20px;">').prop('checked', param.required)
+                        const $required = $('<input type="checkbox" style="width: 20px!important;">').prop('checked', param.required)
                             .on('change', function () { param.required = $(this).prop('checked'); });
                         const $description = $('<input type="text" class="ai-agent-tool-param-desc" placeholder="What this value means">')
                             .val(param.description)
@@ -157,6 +191,9 @@
                     names[param.name] = true;
                 }
                 this.parameters = JSON.stringify(paramsToSchema(params));
+                // The name the model sees always ends up being a valid tool name.
+                const typed = String($('#node-input-toolName').val() || '').trim();
+                this.toolName = NAME_PATTERN.test(typed) ? typed : toToolName(typed || this.name, 'tool');
             }
         });
 
@@ -174,20 +211,65 @@
     .ai-agent-tool-param-desc-row, .ai-agent-tool-param-desc-row + input { grid-column: 1 / span 2; }
     .ai-agent-tool-param-desc { width: 100%; }
     .ai-agent-tool-params-empty { padding: 8px; color: #888; }
+
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
 </style>
 
 <script type="text/html" data-template-name="ai-tool">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="get_weather">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Node Name<span class="ai-agent-help" data-help="Any readable name, in any language: Get weather, Consultar clima. It is only the label of the node in the flow, so spaces and accents are fine."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-name" placeholder="Get weather">
     </div>
-    <div class="form-tips">The name the model sees. Use snake_case: lowercase letters, digits and underscores, starting with a letter.</div>
+    <div class="form-row">
+        <label for="node-input-toolName"><i class="fa fa-code"></i> Tool name<span class="ai-agent-help" data-help="The name the model reads. Write it in natural language and it is converted to snake_case (Get weather becomes get_weather). You can also type the technical name yourself. Letters, digits and underscores, up to 64 characters, starting with a letter."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-toolName" placeholder="get_weather">
+    </div>
     <div class="form-row" style="margin-top: 10px;">
-        <label for="node-input-description"><i class="fa fa-info-circle"></i> Description</label>
+        <label for="node-input-description"><i class="fa fa-info-circle"></i> Description<span class="ai-agent-help" data-help="What the tool does and when to use it. It is the only thing the model sees before deciding to call the tool, so be concrete: Returns the current weather for a city, not Weather tool."><i class="fa fa-question-circle"></i></span></label>
         <input type="text" id="node-input-description" placeholder="Returns the current weather for a city">
     </div>
     <div class="form-row">
-        <label><i class="fa fa-list-ul"></i> Parameters <span id="ai-agent-tool-params-summary" style="font-weight: normal; color: #888; margin-left: 6px;"></span></label>
+        <label><i class="fa fa-list-ul"></i> Parameters <span class="ai-agent-help" data-help="The arguments the model must provide, with their type and description. They arrive in msg.payload as an object, already validated, so the flow can read msg.payload.city. Mark a parameter required only when the tool cannot work without it."><i class="fa fa-question-circle"></i></span><span id="ai-agent-tool-params-summary" style="font-weight: normal; color: #888; margin-left: 6px;"></span></label>
         <ul class="ai-agent-tool-params-list" id="ai-agent-tool-params"></ul>
         <button type="button" class="red-ui-button red-ui-button-small" id="ai-agent-tool-add-param"><i class="fa fa-plus"></i> Add parameter</button>
     </div>
@@ -200,6 +282,8 @@
     <dl class="message-properties">
         <dt>payload <span class="property-type">object</span></dt>
         <dd>When the agent calls the tool, the arguments chosen by the model (validated against the parameters). Otherwise, a normal message to test the flow by hand.</dd>
+        <dt>(any property) <span class="property-type">any</span></dt>
+        <dd>The call is a copy of the message that entered the Agent, so any property it carried (<code>msg.user</code>, a token, a topic...) is here, together with <code>_msgid</code>, <code>_user</code> and <code>session_id</code>. Only <code>payload</code> is different: it holds the arguments of this call.</dd>
     </dl>
 
     <h3>Outputs</h3>
@@ -211,9 +295,15 @@
     <h3>Wiring</h3>
     <p>Wire the output to the nodes that do the work, and wire the last node <b>back into this Tool's input</b> (or into a <b>Tool Return</b> node wired the same way). A Tool that is never wired back leaves the agent waiting and the node stuck in <b>running</b>.</p>
 
+    <h3>Errors</h3>
+    <p>Best practice: <b>catch the error before the Tool Return</b> and return a clear message to the model, for example <i>"The weather service is unavailable right now"</i>. A tool that fails and never answers leaves a tool call without a result in the conversation memory; the next message of the same session is then rejected by the provider (<i>"An assistant message with 'tool_calls' must be followed by tool messages"</i>) until the session is cleared.</p>
+    <p>The simplest way is to put a <b>Catch</b> node on the tool flow (scope: this Tool and the nodes of its flow) and connect it to the <b>Tool Return</b>, returning a property such as <code>error.message</code>. The error reaches the model as the tool result, so it can explain the problem or try another call instead of the flow failing.</p>
+
     <h3>Details</h3>
     <p><b>Name</b> and <b>Description</b> are the tool definition the model reads. Add one row per <b>parameter</b> (name, type, required, description); the node stores them as a JSON Schema and validates the arguments before the flow runs, reporting invalid ones to the model.</p>
     <p>The Tool node starts its flow when the agent calls it and ends it when the flow reaches it again (returning <code>msg.payload</code>). A <b>Tool Return</b> node can be used instead when the result lives in another property.</p>
     <p>Any node can sit in between: HTTP Request, MQTT, PostgreSQL, Function, home automation, and so on.</p>
+    <p>Each call is its own copy of the Agent's input message, so a tool can add properties and read them later in its flow without changing the other tools of the same turn nor the answer. The copy is shallow: writing inside a nested object (<code>msg.user.id</code>) does change the object shared with the Agent's message.</p>
+    <p>If a run is cancelled before the tool answers (agent timeout, redeploy), the agent closes the call with a "cancelled" result the next time the session is used, so the conversation stays valid.</p>
 </script>
 

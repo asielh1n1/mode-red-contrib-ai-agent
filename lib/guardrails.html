@@ -1,0 +1,194 @@
+<script type="text/javascript">
+    (function () {
+        'use strict';
+
+        RED.nodes.registerType('ai-guardrails', {
+            category: 'ai agents',
+            color: '#ef9a9a',
+            defaults: {
+                name: { value: '' },
+                model: { value: '', type: 'ai-agent-model' },
+                systemPrompt: { value: '' },
+                useModel: { value: true },
+                maxLength: { value: '' },
+                maxPromptLength: { value: '' },
+                blockedWords: { value: '' },
+                blockedPatterns: { value: '' },
+                blockedMessage: { value: '' },
+                guardrailTimeout: { value: 8000 }
+            },
+            inputs: 1,
+            outputs: 2,
+            icon: 'font-awesome/fa-lock',
+            paletteLabel: 'guardrails',
+            inputLabels: 'message to check',
+            outputLabels: ['pass', 'blocked'],
+            label: function () {
+                return this.name || 'guardrails';
+            },
+            labelStyle: function () {
+                return this.name ? 'node_label_italic' : '';
+            },
+            oneditsave: function () {
+                this.systemPrompt = $('#node-input-systemPrompt').val() || '';
+            }
+        });
+    }());
+</script>
+
+<script type="text/html" data-template-name="ai-guardrails">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="A label for the node in the palette and in the flow. It does not change the behaviour."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-name" placeholder="Guardrails">
+    </div>
+    <h4 style="margin-top: 14px;">Rules (run before the model, free and deterministic)</h4>
+    <div class="form-row">
+        <label for="node-input-maxLength"><i class="fa fa-text-width"></i> Max length<span class="ai-agent-help" data-help="Maximum number of characters in msg.payload. A longer message goes to the blocked output without calling the model. Empty means no limit."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-maxLength" placeholder="no limit">
+    </div>
+    <div class="form-row">
+        <label for="node-input-maxPromptLength"><i class="fa fa-flag"></i> Flag from length<span class="ai-agent-help" data-help="A message at least this long is still checked by the model, but its verdict is tagged suspicious_length, so a later node can raise the level. It never blocks by itself."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-maxPromptLength" placeholder="no flag">
+    </div>
+    <div class="form-row">
+        <label for="node-input-blockedWords"><i class="fa fa-ban"></i> Blocked words<span class="ai-agent-help" data-help="One word per line. Whole words only, case-insensitive, accents included. Lines starting with # are comments."><i class="fa fa-question-circle"></i></span></label>
+        <textarea id="node-input-blockedWords" rows="4" style="width: 100%; resize: vertical;"
+            placeholder="one word per line"></textarea>
+    </div>
+    <div class="form-row">
+        <label for="node-input-blockedPatterns"><i class="fa fa-filter"></i> Blocked patterns<span class="ai-agent-help" data-help="One JavaScript regular expression per line, matched against msg.payload. An invalid pattern is reported when the node starts."><i class="fa fa-question-circle"></i></span></label>
+        <textarea id="node-input-blockedPatterns" rows="4" style="width: 100%; resize: vertical;"
+            placeholder="one regular expression per line"></textarea>
+    </div>
+
+    <h4 style="margin-top: 14px;">Model check</h4>
+    <div class="form-row">
+        <input type="checkbox" id="node-input-useModel" style="width: 20px!important; vertical-align: top;">
+        <label style="width: auto !important;">Use the model<span class="ai-agent-help" data-help="Checked, the message that passes the rules is also judged by the model. Unchecked, only the rules above are applied."><i class="fa fa-question-circle"></i></span></label>
+    </div>
+    <div class="form-row">
+        <label for="node-input-model"><i class="fa fa-microchip"></i> Model<span class="ai-agent-help" data-help="The model this guardrail uses to judge a message. It runs on its own, with temperature 0 and a short JSON answer, and it is never the agent's conversation."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-model">
+    </div>
+    <div class="form-row">
+        <label for="node-input-systemPrompt"><i class="fa fa-quote-left"></i> System prompt<span class="ai-agent-help" data-help="The policy: what counts as unsafe. Write it in natural language, for example no permitas faltas de respeto. The node always appends the order to answer with JSON {allowed, category, reason}, so a policy cannot break the verdict. Empty uses the built-in policy."><i class="fa fa-question-circle"></i></span></label>
+        <textarea id="node-input-systemPrompt" rows="8" style="width: 100%; resize: vertical;"
+            placeholder="Leave empty to use the built-in guardrail prompt"></textarea>
+    </div>
+    <div class="form-row">
+        <label for="node-input-guardrailTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long the guardrail waits for its model before blocking the message. It is independent from the agent timeout."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-guardrailTimeout">
+    </div>
+
+    <h4 style="margin-top: 14px;">Blocked branch</h4>
+    <div class="form-row">
+        <label for="node-input-blockedMessage"><i class="fa fa-comment-slash"></i> Output Message<span class="ai-agent-help" data-help="Text sent as msg.payload on the blocked output, replacing the rejected one. The original is kept in msg['ai-agents/blocked-payload']. Empty keeps the original payload."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-blockedMessage" placeholder="This message cannot be processed">
+    </div>
+</script>
+
+<style>
+
+    /* The help icon sits inside the label, right after its text, like the field icon. */
+    .form-row label .ai-agent-help {
+        position: relative;
+        display: inline-block;
+        margin-left: 4px;
+        color: #999;
+        cursor: help;
+        font-weight: normal;
+    }
+    .form-row label .ai-agent-help:hover { color: #4fc3f7; }
+
+    /* The tooltip is painted outside the dialog box: no horizontal scrollbar, nothing clipped by
+       the form borders. 280px is the room the dialog leaves on both sides of a label. */
+    .form-row label .ai-agent-help::after {
+        content: attr(data-help);
+        position: absolute;
+        left: 0;
+        top: 100%;
+        margin-top: 4px;
+        z-index: 100000;
+        display: block;
+        width: 280px;
+        max-width: 280px;
+        padding: 8px 10px;
+        border-radius: 3px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+        background: #333;
+        color: #fff;
+        font-size: 12px;
+        font-weight: normal;
+        line-height: 1.45;
+        white-space: normal;
+        word-wrap: break-word;
+        text-align: left;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.12s ease-in;
+        pointer-events: none;
+    }
+    .form-row label .ai-agent-help:hover::after { opacity: 1; visibility: visible; }
+</style>
+
+<script type="text/html" data-help-name="ai-guardrails">
+    <p>Checks a message before it reaches the agent and blocks it when it looks unsafe.</p>
+
+    <h3>Wiring</h3>
+    <p>Put it between the input of the flow and the <b>agent</b>:</p>
+    <p style="margin-left: 12px;"><code>input → guardrails → pass → agent</code><br>
+       <code>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ blocked → debug / reply</code></p>
+    <p>Only the <b>pass</b> output should reach the agent. The <b>blocked</b> output is where a refusal is answered or logged.</p>
+
+    <h3>Input</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">string | buffer | object</span></dt>
+        <dd>The text to check. <b>Every message must arrive in <code>msg.payload</code></b>: that is the contract of this node and the only property it reads. A buffer is read as UTF-8; an object uses its <code>text</code> or <code>content</code> property, and otherwise its JSON.</dd>
+    </dl>
+
+    <h3>Fields</h3>
+    <dl class="message-properties">
+        <dt>Name</dt>
+        <dd>Label of the node in the palette and in the flow. It does not change the behaviour.</dd>
+        <dt>Model</dt>
+        <dd>The model this guardrail uses to judge a message. It runs on its own, with temperature 0 and a short JSON answer, and never shares the agent's conversation.</dd>
+        <dt>Max length</dt>
+        <dd>Maximum number of characters in <code>msg.payload</code>. A longer message goes to <b>blocked</b> without calling the model. Empty means no limit.</dd>
+        <dt>Flag from length</dt>
+        <dd>A message at least this long is still checked by the model, but its verdict is tagged <code>suspicious_length</code> so a later node can raise the level. It never blocks by itself.</dd>
+        <dt>Blocked words</dt>
+        <dd>One word per line. Whole words only, case-insensitive, accents included. Lines starting with <code>#</code> are comments.</dd>
+        <dt>Blocked patterns</dt>
+        <dd>One JavaScript regular expression per line, matched against <code>msg.payload</code>. An invalid pattern is reported when the node starts.</dd>
+        <dt>Use the model</dt>
+        <dd>Checked, the message that passes the rules is also judged by the model. Unchecked, only the rules are applied.</dd>
+        <dt>System prompt</dt>
+        <dd>The <b>policy</b> of the guardrail: what counts as unsafe, written in natural language. The node appends the answer format itself (<code>{"allowed": true|false, "category": "...", "reason": "..."}</code>) to whatever is written here, so a custom policy can never leave the model answering in prose. Empty uses the built-in policy.</dd>
+        <dt>Timeout (ms)</dt>
+        <dd>How long the guardrail waits for its model before blocking the message. It is independent from the agent timeout.</dd>
+        <dt>Output Message</dt>
+        <dd>Text sent as <code>msg.payload</code> on the <b>blocked</b> output, replacing the rejected one. The original is kept in <code>msg["ai-agents/blocked-payload"]</code>. Empty keeps the original payload.</dd>
+    </dl>
+
+    <h3>How it decides</h3>
+    <p>First the <b>rules</b>, which cost nothing and always run: maximum length, blocked words and blocked patterns. A message that breaks a rule goes to <b>blocked</b> without calling any model.</p>
+    <p>Then, when <b>Use the model</b> is checked, the guardrail asks its own model for a JSON verdict. It always uses temperature 0 and a capped answer, with room for the model to reason first, so the result is as stable as the provider allows.</p>
+    <p><b>Fail-closed:</b> if the model is missing, replies with something that is not JSON, times out, or the request fails, the message goes to <b>blocked</b>. A guardrail that lets traffic through when it cannot decide protects nothing.</p>
+
+    <h3>Output</h3>
+    <p>Both outputs carry the original message plus <code>msg["ai-agents/guardrail"]</code>:</p>
+    <pre>{
+  "allowed": false,
+  "source": "rules" | "model",
+  "rule": "blockedWords",
+  "reason": "Blocked word: ...",
+  "categories": ["blocked_word"]
+}</pre>
+    <p>On the <b>blocked</b> output, when an <b>Output Message</b> is configured, <code>msg.payload</code> is replaced by it and the rejected text is kept in <code>msg["ai-agents/blocked-payload"]</code>, so the malicious input does not travel to the agent, the tools or the logs by accident.</p>
+
+    <h3>What it does not cover</h3>
+    <p>It checks the message that enters it. Text coming back from a <b>tool</b> (an HTTP response, a document) is not checked: indirect prompt injection travels that way, and needs a guardrail on the tool result. The <b>answer</b> of the agent is not checked either.</p>
+
+    <h3>Cost</h3>
+    <p>With the model enabled, every message is one extra model call with a small answer. Lower <b>Max length</b> or disable the model for the flows where the rules are enough.</p>
+</script>
