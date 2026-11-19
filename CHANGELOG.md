@@ -41,6 +41,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `deepseek-flash` spent the whole budget on hidden reasoning and returned empty content, which
   was also reported as *"did not answer with JSON"*. The error now names the real cause and shows
   the text the model actually sent.
+- **Reasoning effort** now reaches the provider. The level was set as a top-level `reasoning`
+  option, which the chat-completions client drops, so the editor field changed nothing: a captured
+  request had no `reasoning_effort` at all. OpenAI and DeepSeek receive it in the request body
+  through `modelKwargs`, and for DeepSeek the levels are the ones its API documents
+  (`none`, `low`, `high`, `max`), where `none` disables thinking mode.
 
 ### Added
 

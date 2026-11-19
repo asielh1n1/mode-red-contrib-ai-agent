@@ -792,9 +792,9 @@ test('every provider builds its LangChain model and maps the effort level', () =
     }
 
     const openai = createModel({ provider: 'openai', model: 'gpt-5', baseUrl: 'https://api.openai.com/v1', apiKey: 'k', temperature: 0.7, maxTokens: 64, timeout: 1000, reasoningEffort: 'high' });
-    assert.deepEqual(openai.reasoning, { effort: 'high' }, 'OpenAI uses reasoning.effort');
+    assert.deepEqual(openai.modelKwargs, { reasoning_effort: 'high' }, 'OpenAI uses reasoning_effort in the request body');
     const minimal = createModel({ provider: 'openai', model: 'gpt-5', baseUrl: 'https://api.openai.com/v1', apiKey: 'k', temperature: 0.7, maxTokens: 64, timeout: 1000, reasoningEffort: 'none' });
-    assert.deepEqual(minimal.reasoning, { effort: 'minimal' }, 'none maps to the lowest OpenAI level');
+    assert.deepEqual(minimal.modelKwargs, { reasoning_effort: 'minimal' }, 'none maps to the lowest OpenAI level');
 
     const anthropic = createModel({ provider: 'anthropic', model: 'claude-sonnet-4-5', baseUrl: 'https://api.anthropic.com', apiKey: 'k', temperature: 0.7, maxTokens: 64, timeout: 1000, reasoningEffort: 'max' });
     assert.deepEqual(anthropic.outputConfig, { effort: 'max' }, 'Anthropic uses outputConfig.effort');
@@ -803,6 +803,9 @@ test('every provider builds its LangChain model and maps the effort level', () =
     assert.deepEqual(google.thinkingConfig, { thinkingLevel: 'LOW', includeThoughts: false }, 'Gemini uses thinkingLevel');
     const off = createModel({ provider: 'google', model: 'gemini-2.5-pro', baseUrl: 'https://generativelanguage.googleapis.com', apiKey: 'k', temperature: 0.7, maxTokens: 64, timeout: 1000, reasoningEffort: 'none' });
     assert.deepEqual(off.thinkingConfig, { thinkingBudget: 0 }, 'none disables Gemini thinking');
+
+    const deepseek = createModel({ provider: 'deepseek', model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com', apiKey: 'k', temperature: 0.7, maxTokens: 64, timeout: 1000, reasoningEffort: 'low' });
+    assert.deepEqual(deepseek.modelKwargs, { reasoning_effort: 'low' }, 'DeepSeek uses reasoning_effort in the request body');
   } finally {
     modelFactory.createModel.factory = savedFactory;
   }
@@ -846,8 +849,25 @@ test('the effort levels offered by each provider match its API', () => {
   assert.deepEqual(catalog.openai.effort.levels, ['none', 'low', 'medium', 'high']);
   assert.ok(catalog.anthropic.effort.levels.includes('max'));
   assert.deepEqual(catalog.google.effort.levels, ['none', 'low', 'medium', 'high']);
-  assert.deepEqual(catalog.deepseek.effort.levels, ['auto']);
+  // DeepSeek documents none | low | high | max: "minimal" is mapped to "low" and "medium"
+  // to "high", and there is no "auto" level.
+  assert.deepEqual(catalog.deepseek.effort.levels, ['none', 'low', 'high', 'max']);
   assert.equal(catalog.openrouter.packageName, '@langchain/openai', 'OpenRouter speaks the OpenAI protocol');
+});
+
+test('the effort level reaches the request body instead of being dropped', () => {
+  // The bug this covers: the effort was set as a top-level `reasoning` option, which the
+  // chat-completions client ignores, so the editor field did nothing.
+  const catalog = require('../lib/catalog');
+  for (const provider of ['openai', 'deepseek']) {
+    const options = { apiKey: 'k', model: 'm' };
+    catalog[provider].effort.apply(options, 'high');
+    assert.equal(options.reasoning, undefined, `${provider} must not use the ignored option`);
+    assert.equal(options.modelKwargs.reasoning_effort, provider === 'openai' ? 'high' : 'high');
+  }
+  const none = { apiKey: 'k', model: 'm' };
+  catalog.deepseek.effort.apply(none, 'none');
+  assert.equal(none.modelKwargs.reasoning_effort, 'none', 'none disables thinking mode on DeepSeek');
 });
 
 test('the provider catalog is read from its own API shape', async () => {
