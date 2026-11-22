@@ -149,7 +149,7 @@
     </div>
     <div class="form-row">
         <label for="node-config-input-memoryKind"><i class="fa fa-database"></i> Storage<span class="ai-agent-help" data-help="Conversation memory keeps the sessions while Node-RED runs and loses them on restart. Postgres and Redis keep them across restarts and deploys, and are the choice for anything that must remember."><i class="fa fa-question-circle"></i></span></label>
-        <select id="node-config-input-memoryKind">
+        <select id="node-config-input-memoryKind" class="w70">
             <option value="ram">Conversation memory</option>
             <option value="postgres">Postgres</option>
             <option value="redis">Redis</option>
@@ -169,8 +169,8 @@
         <input type="text" id="node-config-input-memorySchema" placeholder="public">
     </div>
     <div class="form-row">
-        <label for="node-config-input-contextWindow"><i class="fa fa-window-maximize"></i> Context window length<span class="ai-agent-help" data-help="How many recent messages are sent to the model on every call. Older messages stay stored but are left out, which keeps the prompt (and the cost) bounded. 0 sends the whole conversation."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-contextWindow"  placeholder="0" value="10">
+        <label for="node-config-input-contextWindow" class="w100"><i class="fa fa-window-maximize"></i> Context window length<span class="ai-agent-help" data-help="How many recent messages are sent to the model on every call. Older messages stay stored but are left out, which keeps the prompt (and the cost) bounded. 0 sends the whole conversation."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-contextWindow"  placeholder="0" value="10" style="width: 93%;">
     </div>
     <div class="form-row ai-agent-memory-storage-row">
         <button type="button" class="red-ui-button" id="ai-agent-memory-check"><i class="fa fa-refresh"></i> Test connection</button>

@@ -43,20 +43,20 @@
     </div>
     <h4 style="margin-top: 14px;">Rules (run before the model, free and deterministic)</h4>
     <div class="form-row">
-        <label for="node-input-maxLength"><i class="fa fa-text-width"></i> Max length<span class="ai-agent-help" data-help="Maximum number of characters in msg.payload. A longer message goes to the blocked output without calling the model. Empty means no limit."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-maxLength" placeholder="no limit">
+        <label for="node-input-maxLength" class="w100"><i class="fa fa-text-width"></i> Max length<span class="ai-agent-help" data-help="Maximum number of characters in msg.payload. A longer message goes to the blocked output without calling the model. Empty means no limit."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-maxLength" placeholder="no limit" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-input-maxPromptLength"><i class="fa fa-flag"></i> Flag from length<span class="ai-agent-help" data-help="A message at least this long is still checked by the model, but its verdict is tagged suspicious_length, so a later node can raise the level. It never blocks by itself."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-maxPromptLength" placeholder="no flag">
+        <label for="node-input-maxPromptLength" class="w100"><i class="fa fa-flag"></i> Flag from length<span class="ai-agent-help" data-help="A message at least this long is still checked by the model, but its verdict is tagged suspicious_length, so a later node can raise the level. It never blocks by itself."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-maxPromptLength" placeholder="no flag" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-input-blockedWords"><i class="fa fa-ban"></i> Blocked words<span class="ai-agent-help" data-help="One word per line. Whole words only, case-insensitive, accents included. Lines starting with # are comments."><i class="fa fa-question-circle"></i></span></label>
+        <label for="node-input-blockedWords" class="w100"><i class="fa fa-ban"></i> Blocked words<span class="ai-agent-help" data-help="One word per line. Whole words only, case-insensitive, accents included. Lines starting with # are comments."><i class="fa fa-question-circle"></i></span></label>
         <textarea id="node-input-blockedWords" rows="4" style="width: 100%; resize: vertical;"
             placeholder="one word per line"></textarea>
     </div>
     <div class="form-row">
-        <label for="node-input-blockedPatterns"><i class="fa fa-filter"></i> Blocked patterns<span class="ai-agent-help" data-help="One JavaScript regular expression per line, matched against msg.payload. An invalid pattern is reported when the node starts."><i class="fa fa-question-circle"></i></span></label>
+        <label for="node-input-blockedPatterns" class="w100"><i class="fa fa-filter"></i> Blocked patterns<span class="ai-agent-help" data-help="One JavaScript regular expression per line, matched against msg.payload. An invalid pattern is reported when the node starts."><i class="fa fa-question-circle"></i></span></label>
         <textarea id="node-input-blockedPatterns" rows="4" style="width: 100%; resize: vertical;"
             placeholder="one regular expression per line"></textarea>
     </div>
@@ -76,14 +76,15 @@
             placeholder="Leave empty to use the built-in guardrail prompt"></textarea>
     </div>
     <div class="form-row">
-        <label for="node-input-guardrailTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long the guardrail waits for its model before blocking the message. It is independent from the agent timeout."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-guardrailTimeout">
+        <label for="node-input-guardrailTimeout" class="w100"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long the guardrail waits for its model before blocking the message. It is independent from the agent timeout."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-guardrailTimeout" class="w100"/>
     </div>
 
     <h4 style="margin-top: 14px;">Blocked branch</h4>
     <div class="form-row">
-        <label for="node-input-blockedMessage"><i class="fa fa-comment-slash"></i> Output Message<span class="ai-agent-help" data-help="Text sent as msg.payload on the blocked output, replacing the rejected one. The original is kept in msg['ai-agents/blocked-payload']. Empty keeps the original payload."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-blockedMessage" placeholder="This message cannot be processed">
+        <label for="node-input-blockedMessage" class="w100"><i class="fa fa-comment-slash"></i> Output Message<span class="ai-agent-help" data-help="Text sent as msg.payload on the blocked output, replacing the rejected one. The original is kept in msg['ai-agents/blocked-payload']. Empty keeps the original payload."><i class="fa fa-question-circle"></i></span></label>
+        <textarea  id="node-input-blockedMessage" placeholder="This message cannot be processed" class="w100" rows="2">
+        </textarea>
     </div>
 </script>
 

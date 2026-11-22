@@ -82,10 +82,6 @@
                         });
                 }
 
-                $('#node-config-input-temperature').spinner({ min: 0, max: 2, step: 0.1 });
-                $('#node-config-input-maxTokens').spinner({ min: 1, max: 131072 });
-                $('#node-config-input-timeout').spinner({ min: 1000, max: 600000 });
-
                 function entry() {
                     return catalog[$provider.val()] || {};
                 }
@@ -329,11 +325,11 @@
     </div>
     <div class="form-row">
         <label for="node-config-input-provider"><i class="fa fa-cloud"></i> Provider<span class="ai-agent-help" data-help="Which LangChain integration is used. Each provider has its own default endpoint, so change Base URL only for a proxy, a gateway or a self-hosted server."><i class="fa fa-question-circle"></i></span></label>
-        <select id="node-config-input-provider"></select>
+        <select id="node-config-input-provider" class="w70"></select>
     </div>
     <div class="form-row">
         <label for="node-config-input-baseUrl"><i class="fa fa-globe"></i> Base URL<span class="ai-agent-help" data-help="Optional. Leave it empty to use the provider's own endpoint. Fill it for a proxy, an OpenAI-compatible gateway or a local server such as Ollama or LM Studio."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-baseUrl" placeholder="Leave empty to use the provider's endpoint">
+        <input type="text" id="node-config-input-baseUrl" placeholder="Leave empty to use the provider's endpoint"/>
     </div>
     <div class="form-row">
         <label for="node-config-input-apiKeyValue"><i class="fa fa-key"></i> API key<span class="ai-agent-help" data-help="The credential, stored encrypted as a Node-RED credential and never exported with the flow. Write a value, or env:VARIABLE to read it from an environment variable, or leave it empty to use the variable the provider's client already reads."><i class="fa fa-question-circle"></i></span></label>
@@ -345,27 +341,27 @@
     </div>
     <div class="form-row">
         <label for="node-config-input-model"><i class="fa fa-microchip"></i> Model<span class="ai-agent-help" data-help="The model name exactly as the provider documents it, for example gpt-4o-mini or deepseek-chat. Use List models to copy a valid one. An agent needs a model that supports tool calls."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-model" placeholder="Type the exact model name">
+        <input type="text" id="node-config-input-model" placeholder="Type the exact model name"/>
     </div>
     <ul class="ai-agent-model-list" id="ai-agent-model-list"></ul>
     <div class="form-row">
         <button type="button" class="red-ui-button" id="ai-agent-model-fetch"><i class="fa fa-search"></i> List models</button>
     </div>
     <div class="form-row">
-        <label for="node-config-input-reasoningEffort"><i class="fa fa-brain"></i> Reasoning effort<span class="ai-agent-help" data-help="How much the model is allowed to think before answering, for the models that expose this option. Higher values give better plans for long tool chains and cost more; None uses the provider's default."><i class="fa fa-question-circle"></i></span></label>
-        <select id="node-config-input-reasoningEffort"></select>
+        <label for="node-config-input-reasoningEffort" class="w100"><i class="fa fa-brain"></i> Reasoning effort<span class="ai-agent-help" data-help="How much the model is allowed to think before answering, for the models that expose this option. Higher values give better plans for long tool chains and cost more; None uses the provider's default."><i class="fa fa-question-circle"></i></span></label>
+        <select id="node-config-input-reasoningEffort" class="w100"></select>
     </div>
     <div class="form-row">
-        <label for="node-config-input-temperature"><i class="fa fa-thermometer-half"></i> Temperature<span class="ai-agent-help" data-help="Randomness of the answer, from 0 to 2. Low values are predictable, which suits tool calls and classification; high values give more variety, which suits creative writing. Leave empty to use the provider's default."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-temperature" placeholder="0.7">
+        <label for="node-config-input-temperature" class="w100"><i class="fa fa-thermometer-half"></i> Temperature<span class="ai-agent-help" data-help="Randomness of the answer, from 0 to 2. Low values are predictable, which suits tool calls and classification; high values give more variety, which suits creative writing. Leave empty to use the provider's default."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-config-input-temperature" placeholder="0.7" class="w100" min="0" max="1" step="0.1"/>
     </div>
     <div class="form-row">
-        <label for="node-config-input-maxTokens"><i class="fa fa-align-left"></i> Max tokens<span class="ai-agent-help" data-help="Cap on the length of the answer of a single model call, in tokens. It does not limit the whole conversation. Leave empty to use the provider's default."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-maxTokens" placeholder="2048">
+        <label for="node-config-input-maxTokens" class="w100"><i class="fa fa-align-left"></i> Max tokens<span class="ai-agent-help" data-help="Cap on the length of the answer of a single model call, in tokens. It does not limit the whole conversation. Leave empty to use the provider's default."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-config-input-maxTokens" placeholder="2048" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long one model request may take, in milliseconds. It is the HTTP timeout of the provider call. Keep it below the Timeout of the agent that uses this model."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-timeout" placeholder="60000">
+        <label for="node-config-input-timeout" class="w100"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long one model request may take, in milliseconds. It is the HTTP timeout of the provider call. Keep it below the Timeout of the agent that uses this model."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-timeout" placeholder="60000" class="w100"/>
     </div>
     <div class="form-row">
         <button type="button" class="red-ui-button" id="ai-agent-model-check"><i class="fa fa-check"></i> Check configuration</button>

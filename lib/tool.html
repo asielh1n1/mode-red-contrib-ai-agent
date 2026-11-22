@@ -257,19 +257,19 @@
 
 <script type="text/html" data-template-name="ai-tool">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Node Name<span class="ai-agent-help" data-help="Any readable name, in any language: Get weather, Consultar clima. It is only the label of the node in the flow, so spaces and accents are fine."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-name" placeholder="Get weather">
+        <label for="node-input-name" class="w100"><i class="fa fa-tag"></i> Node Name<span class="ai-agent-help" data-help="Any readable name, in any language: Get weather, Consultar clima. It is only the label of the node in the flow, so spaces and accents are fine."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-name" placeholder="Get weather" class="w100">
     </div>
     <div class="form-row">
-        <label for="node-input-toolName"><i class="fa fa-code"></i> Tool name<span class="ai-agent-help" data-help="The name the model reads. Write it in natural language and it is converted to snake_case (Get weather becomes get_weather). You can also type the technical name yourself. Letters, digits and underscores, up to 64 characters, starting with a letter."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-toolName" placeholder="get_weather">
+        <label for="node-input-toolName" class="w100"><i class="fa fa-code"></i> Tool name<span class="ai-agent-help" data-help="The name the model reads. Write it in natural language and it is converted to snake_case (Get weather becomes get_weather). You can also type the technical name yourself. Letters, digits and underscores, up to 64 characters, starting with a letter."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-toolName" placeholder="get_weather" class="w100">
     </div>
     <div class="form-row" style="margin-top: 10px;">
-        <label for="node-input-description"><i class="fa fa-info-circle"></i> Description<span class="ai-agent-help" data-help="What the tool does and when to use it. It is the only thing the model sees before deciding to call the tool, so be concrete: Returns the current weather for a city, not Weather tool."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-description" placeholder="Returns the current weather for a city">
+        <label for="node-input-description" class="w100"><i class="fa fa-info-circle"></i> Description<span class="ai-agent-help" data-help="What the tool does and when to use it. It is the only thing the model sees before deciding to call the tool, so be concrete: Returns the current weather for a city, not Weather tool."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-description" placeholder="Returns the current weather for a city" class="w100">
     </div>
     <div class="form-row">
-        <label><i class="fa fa-list-ul"></i> Parameters <span class="ai-agent-help" data-help="The arguments the model must provide, with their type and description. They arrive in msg.payload as an object, already validated, so the flow can read msg.payload.city. Mark a parameter required only when the tool cannot work without it."><i class="fa fa-question-circle"></i></span><span id="ai-agent-tool-params-summary" style="font-weight: normal; color: #888; margin-left: 6px;"></span></label>
+        <label class="w100"><i class="fa fa-list-ul"></i> Parameters <span class="ai-agent-help" data-help="The arguments the model must provide, with their type and description. They arrive in msg.payload as an object, already validated, so the flow can read msg.payload.city. Mark a parameter required only when the tool cannot work without it."><i class="fa fa-question-circle"></i></span><span id="ai-agent-tool-params-summary" style="font-weight: normal; color: #888; margin-left: 6px;"></span></label>
         <ul class="ai-agent-tool-params-list" id="ai-agent-tool-params"></ul>
         <button type="button" class="red-ui-button red-ui-button-small" id="ai-agent-tool-add-param"><i class="fa fa-plus"></i> Add parameter</button>
     </div>

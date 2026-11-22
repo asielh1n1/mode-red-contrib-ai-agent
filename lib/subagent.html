@@ -122,24 +122,24 @@
 
 <script type="text/html" data-template-name="ai-subagent">
     <div class="form-row">
-        <label for="node-input-name"><i class="fa fa-tag"></i> Node Name<span class="ai-agent-help" data-help="Any readable name, in any language. It is only the label of the node in the flow."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-name" placeholder="Research topics">
+        <label for="node-input-name" class="w100"><i class="fa fa-tag"></i> Node Name<span class="ai-agent-help" data-help="Any readable name, in any language. It is only the label of the node in the flow."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-name" placeholder="Research topics" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-input-toolName"><i class="fa fa-code"></i> Subagent name<span class="ai-agent-help" data-help="The name the parent model reads. Write it in natural language and it is converted to snake_case (Research topics becomes research_topics). Letters, digits and underscores, up to 64 characters."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-toolName" placeholder="research_topics">
+        <label for="node-input-toolName" class="w100"><i class="fa fa-code"></i> Subagent name<span class="ai-agent-help" data-help="The name the parent model reads. Write it in natural language and it is converted to snake_case (Research topics becomes research_topics). Letters, digits and underscores, up to 64 characters."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-toolName" placeholder="research_topics" class="w100">
     </div>
     <div class="form-row">
-        <label for="node-input-description"><i class="fa fa-info-circle"></i> Description<span class="ai-agent-help" data-help="What the subagent does and when the parent should delegate to it. This text is the only thing the parent model sees, so be concrete: Researches a topic in depth and returns a summary."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-description" placeholder="Researches a topic in depth and returns a summary">
+        <label for="node-input-description" class="w100"><i class="fa fa-info-circle"></i> Description<span class="ai-agent-help" data-help="What the subagent does and when the parent should delegate to it. This text is the only thing the parent model sees, so be concrete: Researches a topic in depth and returns a summary."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-input-description" placeholder="Researches a topic in depth and returns a summary" class="w100" />
     </div>
     <div class="form-row">
         <label for="node-input-model"><i class="fa fa-microchip"></i> Model<span class="ai-agent-help" data-help="The model the subagent uses, independent of the parent agent. Use a smaller or cheaper one for narrow tasks."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-input-model">
+        <input type="text" id="node-input-model" />
     </div>
     <div class="form-row">
         <label for="node-input-contextMode"><i class="fa fa-random"></i> Context<span class="ai-agent-help" data-help="Isolated sends only the task the parent wrote, which keeps the subagent cheap and focused. Fork also sends the parent message, so the subagent can see the conversation that led to the call."><i class="fa fa-question-circle"></i></span></label>
-        <select id="node-input-contextMode">
+        <select id="node-input-contextMode" class="w70">
             <option value="isolated">Isolated: only the task</option>
             <option value="fork">Fork: the task plus the parent message</option>
         </select>
@@ -150,20 +150,20 @@
             placeholder="You are a specialized researcher."></textarea>
     </div>
     <div class="form-row" style="margin-top: 10px;">
-        <label for="node-input-recursionLimit"><i class="fa fa-sitemap"></i> Reasoning steps<span class="ai-agent-help" data-help="How many times the subagent may go back to the model. A task that calls one tool usually needs 2 or 3."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-recursionLimit">
+        <label for="node-input-recursionLimit" class="w100"><i class="fa fa-sitemap"></i> Reasoning steps<span class="ai-agent-help" data-help="How many times the subagent may go back to the model. A task that calls one tool usually needs 2 or 3."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-recursionLimit" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-input-maxToolCalls">Tool calls<span class="ai-agent-help" data-help="Maximum number of tools the subagent may invoke for one task. The tools it can use are the ones wired to its own tool calls output."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-maxToolCalls">
+        <label for="node-input-maxToolCalls" class="w100">Tool calls<span class="ai-agent-help" data-help="Maximum number of tools the subagent may invoke for one task. The tools it can use are the ones wired to its own tool calls output."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-maxToolCalls" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-input-toolTimeout"><i class="fa fa-hourglass-half"></i> Tool timeout (ms)<span class="ai-agent-help" data-help="How long one of its tool flows may take before the subagent receives a cancelled result. Keep it below Timeout."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-toolTimeout">
+        <label for="node-input-toolTimeout" class="w100"><i class="fa fa-hourglass-half"></i> Tool timeout (ms)<span class="ai-agent-help" data-help="How long one of its tool flows may take before the subagent receives a cancelled result. Keep it below Timeout."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-toolTimeout" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-input-agentTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="Upper bound for the whole subagent run. Keep it below the Timeout of the parent agent: when the parent gives up, the call is closed as cancelled."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-agentTimeout">
+        <label for="node-input-agentTimeout" class="w100"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="Upper bound for the whole subagent run. Keep it below the Timeout of the parent agent: when the parent gives up, the call is closed as cancelled."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-agentTimeout" class="w100"/>
     </div>
 </script>
 

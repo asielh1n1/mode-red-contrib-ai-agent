@@ -33,7 +33,6 @@
                     types: ['str', 'msg', 'flow', 'global', 'env'],
                     typeField: '#node-config-input-urlType'
                 });
-                $('#node-config-input-timeout').spinner({ min: 1000, max: 600000 });
 
                 // Headers are edited as rows (name + value) and stored as a JSON object.
                 let headers = {};
@@ -286,27 +285,27 @@
 
 <script type="text/html" data-template-name="mcp-client">
     <div class="form-row">
-        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="The label of this connection in the palette and in the MCP tool node field. It does not change the server it reaches."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-name" placeholder="MCP server">
+        <label for="node-config-input-name" class="w100"><i class="fa fa-tag"></i> Name<span class="ai-agent-help" data-help="The label of this connection in the palette and in the MCP tool node field. It does not change the server it reaches."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-name" placeholder="MCP server" class="w100"/>
     </div>
     <div class="form-row">
-        <label for="node-config-input-transport"><i class="fa fa-exchange"></i> Transport<span class="ai-agent-help" data-help="HTTP reaches a remote server through its URL. Command starts a local server as a child process and talks to it over stdin/stdout, which is the usual way for npx based servers."><i class="fa fa-question-circle"></i></span></label>
-        <select id="node-config-input-transport">
+        <label for="node-config-input-transport" class="w100"><i class="fa fa-exchange"></i> Transport<span class="ai-agent-help" data-help="HTTP reaches a remote server through its URL. Command starts a local server as a child process and talks to it over stdin/stdout, which is the usual way for npx based servers."><i class="fa fa-question-circle"></i></span></label>
+        <select id="node-config-input-transport" class="w100">
             <option value="http">HTTP (remote server)</option>
             <option value="stdio">Command (local server)</option>
         </select>
     </div>
     <div class="form-row mcp-http-row">
-        <label for="node-config-input-url"><i class="fa fa-plug"></i> URL<span class="ai-agent-help" data-help="The endpoint of the remote server, for example https://example.com/mcp. It accepts a credential type, so the address can come from msg, flow, global, env or a Node-RED credential."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-url" placeholder="https://example.com/mcp">
+        <label for="node-config-input-url" class="w100"><i class="fa fa-plug"></i> URL<span class="ai-agent-help" data-help="The endpoint of the remote server, for example https://example.com/mcp. It accepts a credential type, so the address can come from msg, flow, global, env or a Node-RED credential."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-url" placeholder="https://example.com/mcp" class="w100">
         <input type="hidden" id="node-config-input-urlType">
     </div>
     <div class="form-row mcp-stdio-row">
-        <label for="node-config-input-command"><i class="fa fa-terminal"></i> Command<span class="ai-agent-help" data-help="The executable of the local server, for example npx, node or python. It must be on the PATH of the Node-RED process, which is not the same as your terminal when Node-RED runs as a service."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-command" placeholder="npx">
+        <label for="node-config-input-command" class="w100"><i class="fa fa-terminal"></i> Command<span class="ai-agent-help" data-help="The executable of the local server, for example npx, node or python. It must be on the PATH of the Node-RED process, which is not the same as your terminal when Node-RED runs as a service."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-command" placeholder="npx" class="w100">
     </div>
     <div class="form-row mcp-stdio-row">
-        <label for="node-config-input-args"><i class="fa fa-list"></i> Arguments<span class="ai-agent-help" data-help="One argument per line. Quotes are not needed: a line is passed as a single argument, so a path with spaces stays a path with spaces."><i class="fa fa-question-circle"></i></span></label>
+        <label for="node-config-input-args" class="w100"><i class="fa fa-list"></i> Arguments<span class="ai-agent-help" data-help="One argument per line. Quotes are not needed: a line is passed as a single argument, so a path with spaces stays a path with spaces."><i class="fa fa-question-circle"></i></span></label>
         <textarea id="node-config-input-args" rows="3" style="width: 100%;" placeholder="-y&#10;@modelcontextprotocol/server-filesystem&#10;/path/to/folder"></textarea>
     </div>
     <div class="form-row">
@@ -315,8 +314,8 @@
         <button type="button" class="red-ui-button" id="mcp-header-add" style="margin-top: 6px;"><i class="fa fa-plus"></i> Add header</button>
     </div>
     <div class="form-row">
-        <label for="node-config-input-timeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long to wait for the server, in milliseconds, when listing tools and when calling one. Keep it below the Tool timeout of the agent so an unresponsive server fails as a tool error instead of a stalled run."><i class="fa fa-question-circle"></i></span></label>
-        <input type="text" id="node-config-input-timeout">
+        <label for="node-config-input-timeout" class="w100"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="How long to wait for the server, in milliseconds, when listing tools and when calling one. Keep it below the Tool timeout of the agent so an unresponsive server fails as a tool error instead of a stalled run."><i class="fa fa-question-circle"></i></span></label>
+        <input type="text" id="node-config-input-timeout" min="1000" max="600000" class="w100"/>
     </div>
     <div class="form-row">
         <label><i class="fa fa-wrench"></i> Tools to expose<span class="ai-agent-help" data-help="The catalog of the server, filled by Discover tools. Tick only the tools the agent should be able to call: each one is announced to the model and costs prompt tokens. The selection is saved in the flow, so it survives a server that is down at deploy time."><i class="fa fa-question-circle"></i></span></label>

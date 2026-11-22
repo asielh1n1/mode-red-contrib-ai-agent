@@ -44,25 +44,13 @@
 </script>
 
 <style>
-    /* Label above its control, both full width (same rules as the guardrails editor). */
-    .red-ui-editor .form-row input, .red-ui-editor .form-row div[contenteditable=true], .red-ui-editor-dialog .form-row input, .red-ui-editor-dialog .form-row div[contenteditable=true]{
+
+    .w100 {
         width: 100% !important;
     }
 
-    .red-ui-editor .form-row label, .red-ui-editor-dialog .form-row label{
-        width: 100% !important;
-    }
-
-    .red-ui-editor select, .red-ui-editor-dialog select{
-        width: 100% !important;
-    }
-
-    .ui-widget.ui-widget-content {
-        width: 100% !important;
-    }
-
-    .red-ui-typedInput-container {
-        width: 100% !important;
+    .w70 {
+        width: 70% !important;
     }
 
     /* The help icon sits inside the label, right after its text, like the field icon. */
@@ -126,25 +114,25 @@
         <input type="hidden" id="node-input-sessionIdType">
     </div>
     <div class="form-row">
-        <label for="node-input-systemPrompt"><i class="fa fa-quote-left"></i> System prompt<span class="ai-agent-help" data-help="Base instructions for the agent. If the incoming message carries msg.system_prompt (and it is not blank), that value is used instead, which is how a flow sends a long prompt built by another node."><i class="fa fa-question-circle"></i></span></label>
+        <label for="node-input-systemPrompt" class="w100"><i class="fa fa-quote-left"></i> System prompt<span class="ai-agent-help" data-help="Base instructions for the agent. If the incoming message carries msg.system_prompt (and it is not blank), that value is used instead, which is how a flow sends a long prompt built by another node."><i class="fa fa-question-circle"></i></span></label>
         <textarea id="node-input-systemPrompt" rows="6" style="width: 100%; resize: vertical;"
             placeholder="You are a helpful assistant."></textarea>
     </div>
     <div class="form-row" style="margin-top: 10px;">
-        <label for="node-input-recursionLimit"><i class="fa fa-sitemap"></i> Reasoning steps<span class="ai-agent-help" data-help="Cap on how many times the agent may go back to the model (LangGraph recursionLimit). Each round is one step: the model thinks, optionally calls a tool, and thinks again. A message that calls one tool usually needs 2 or 3."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-recursionLimit">
+        <label for="node-input-recursionLimit" class="w100"><i class="fa fa-sitemap"></i> Reasoning steps<span class="ai-agent-help" data-help="Cap on how many times the agent may go back to the model (LangGraph recursionLimit). Each round is one step: the model thinks, optionally calls a tool, and thinks again. A message that calls one tool usually needs 2 or 3."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-recursionLimit" class="w100">
     </div>
     <div class="form-row">
-        <label for="node-input-maxToolCalls">Tool calls<span class="ai-agent-help" data-help="Maximum number of tools a single message may invoke, in one round or across rounds. It stops a model that keeps calling the same tool forever; the tools offered to the model are decided by the wiring of output 2."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-maxToolCalls">
+        <label for="node-input-maxToolCalls" class="w100">Tool calls<span class="ai-agent-help" data-help="Maximum number of tools a single message may invoke, in one round or across rounds. It stops a model that keeps calling the same tool forever; the tools offered to the model are decided by the wiring of output 2."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-maxToolCalls" class="w100">
     </div>
     <div class="form-row">
-        <label for="node-input-toolTimeout"><i class="fa fa-hourglass-half"></i> Tool timeout (ms)<span class="ai-agent-help" data-help="How long a tool flow may take before the model receives a cancelled result. Keep it below the agent Timeout: a tool call saved without a result is what makes the provider reject the conversation."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-toolTimeout">
+        <label for="node-input-toolTimeout" class="w100"><i class="fa fa-hourglass-half"></i> Tool timeout (ms)<span class="ai-agent-help" data-help="How long a tool flow may take before the model receives a cancelled result. Keep it below the agent Timeout: a tool call saved without a result is what makes the provider reject the conversation."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-toolTimeout" class="w100">
     </div>
     <div class="form-row">
-        <label for="node-input-agentTimeout"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="Upper bound for the whole run, in milliseconds. When it expires the message fails with did not finish within, and the next message repairs the session so it stays usable."><i class="fa fa-question-circle"></i></span></label>
-        <input type="number" id="node-input-agentTimeout">
+        <label for="node-input-agentTimeout" class="w100"><i class="fa fa-clock-o"></i> Timeout (ms)<span class="ai-agent-help" data-help="Upper bound for the whole run, in milliseconds. When it expires the message fails with did not finish within, and the next message repairs the session so it stays usable."><i class="fa fa-question-circle"></i></span></label>
+        <input type="number" id="node-input-agentTimeout" class="w100">
     </div>
 </script>
 <script type="text/html" data-help-name="ai-agent">

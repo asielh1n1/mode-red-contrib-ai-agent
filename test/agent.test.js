@@ -551,7 +551,7 @@ test('a Tool Return at the end of the tool flow clears the Tool badge', async ()
   const { agent, nodes } = harness({ script: ['unused'] });
   const tool = nodes.get('tool-1');
   const toolReturn = { id: 'return-1', on: () => {}, send: () => {} };
-  nodes.get('ctor:ai-tool-return').constructor.call(toolReturn, { id: 'return-1', returnProperty: 'payload' });
+  nodes.get('ctor:ai-tool-return').constructor.call(toolReturn, { id: 'return-1' });
   tool.send = () => {};
 
   // The model asks for the tool: the badge says running and the call is pending.
@@ -964,7 +964,7 @@ test('a Tool Return node wired back to the agent resolves the call and returns i
   });
   const toolReturn = { id: 'return-1', type: 'ai-tool-return', on: () => {}, send: () => {} };
   toolReturn.type = 'ai-tool-return';
-  nodes.get('ctor:ai-tool-return').constructor.call(toolReturn, { id: 'return-1', returnProperty: 'payload' });
+  nodes.get('ctor:ai-tool-return').constructor.call(toolReturn, { id: 'return-1' });
 
   const originalSend = agent.send;
   agent.send = (message) => {
@@ -978,6 +978,24 @@ test('a Tool Return node wired back to the agent resolves the call and returns i
   await input(agent, { payload: 'How warm is Madrid?', session_id: 'session-b' });
   const answered = agent.sent.flat().filter((message) => message && typeof message.payload === 'string').pop();
   assert.equal(answered.payload, 'Weather: {"temperature":24}');
+});
+
+test('the Tool Return always returns msg.payload, never another property', () => {
+  const { EventEmitter } = require('node:events');
+  const { nodes } = harness({ script: ['unused'] });
+  const resolved = [];
+  const toolReturn = new EventEmitter();
+  toolReturn.id = 'return-1';
+  toolReturn.status = () => {};
+  toolReturn.warn = () => {};
+
+  // An old flow may still carry this property; the node must ignore it.
+  nodes.get('ctor:ai-tool-return').constructor.call(toolReturn, { id: 'return-1', returnProperty: 'payload.data' });
+
+  const call = { nodeId: 'tool-1', redEngine: { resolveById: (id, value) => resolved.push(value) || true } };
+  toolReturn.emit('input', { 'ai-agents/tool-result': call, payload: { answer: 42 }, other: 'ignored' }, () => {}, () => {});
+
+  assert.deepEqual(resolved, [{ answer: 42 }], 'the payload is the result, whatever the message carries elsewhere');
 });
 
 test('a redeployed memory node keeps its conversations', async () => {
