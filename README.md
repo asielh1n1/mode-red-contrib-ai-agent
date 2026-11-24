@@ -243,6 +243,11 @@ A tool flow should end in a result whatever happens: add a **Catch** node to it 
 instead of leaving the run hanging. As a safety net, the agent's **Tool timeout** answers a flow
 that stops responding so the model can still continue.
 
+The result can be any value: a string reaches the model unchanged, and anything else (an array of
+rows, an object, a number) is sent as JSON. A session that saved a tool result from an older
+release with another type is repaired when its next message arrives, so it does not have to be
+cleared.
+
 If a run is cancelled while a tool is still pending (agent timeout or *Timeout*, redeploy), the
 agent closes that call the next time the session is used: the missing answers are written to the
 memory with a "cancelled" result and the node shows a warning. That keeps the conversation valid

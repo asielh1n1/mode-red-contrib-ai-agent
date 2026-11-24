@@ -302,6 +302,7 @@
     <h3>Details</h3>
     <p><b>Name</b> and <b>Description</b> are the tool definition the model reads. Add one row per <b>parameter</b> (name, type, required, description); the node stores them as a JSON Schema and validates the arguments before the flow runs, reporting invalid ones to the model.</p>
     <p>The Tool node starts its flow when the agent calls it and ends it when the flow reaches it again (returning <code>msg.payload</code>). A <b>Tool Return</b> node can be used instead when the result lives in another property.</p>
+    <p>The result can be any value: text is sent as is, and anything else (an array, an object, a number) is sent to the model as JSON, so a tool can return a list of rows without converting it first. A <code>Buffer</code> is decoded as text.</p>
     <p>Any node can sit in between: HTTP Request, MQTT, PostgreSQL, Function, home automation, and so on.</p>
     <p>Each call is its own copy of the Agent's input message, so a tool can add properties and read them later in its flow without changing the other tools of the same turn nor the answer. The copy is shallow: writing inside a nested object (<code>msg.user.id</code>) does change the object shared with the Agent's message.</p>
     <p>If a run is cancelled before the tool answers (agent timeout, redeploy), the agent closes the call with a "cancelled" result the next time the session is used, so the conversation stays valid.</p>

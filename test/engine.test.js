@@ -5,7 +5,14 @@ const assert = require('node:assert/strict');
 const { AIMessage } = require('@langchain/core/messages');
 const { HumanMessage, ToolMessage } = require('@langchain/core/messages');
 const { MemorySaver } = require('@langchain/langgraph');
-const { createEngine, lastAssistantText, textFromContent, pendingToolCalls, closeToolCalls } = require('../lib/engine');
+const {
+  createEngine,
+  lastAssistantText,
+  textFromContent,
+  pendingToolCalls,
+  closeToolCalls,
+  toolResultText,
+} = require('../lib/engine');
 const { fakeModel, toolCall, toolNode } = require('./fake-model');
 
 function makeEngine({
@@ -63,6 +70,54 @@ test('a tool call is sent to Node-RED, resolved once, and the model continues', 
   assert.deepEqual(sent[0].payload, { city: 'Madrid' });
   assert.equal(sent[0]['ai-agents/tool-result'].nodeId, 'tool-1');
   assert.equal(sent[0]['ai-agents/tool-result'].name, 'get_weather');
+});
+
+test('a tool result that is not text reaches the model as text', async () => {
+  const rows = [
+    { id: 1, total: 10 },
+    { id: 2, total: 20 },
+  ];
+  const { engine, agent } = makeEngine({
+    script: [
+      toolCall('call-1', 'get_weather', { city: 'Madrid' }),
+      (messages) => new AIMessage(`saw: ${messages.at(-1).content}`),
+    ],
+    onSend(_message, _count, activeEngine) {
+      setTimeout(() => activeEngine.resolveById('tool-1', rows), 5);
+    },
+  });
+
+  const result = await run(engine, agent);
+
+  const toolMessage = result.messages.find((message) => message._getType() === 'tool');
+  assert.equal(typeof toolMessage.content, 'string');
+  assert.deepEqual(JSON.parse(toolMessage.content), rows);
+  assert.equal(lastAssistantText(result.messages), `saw: ${JSON.stringify(rows)}`);
+});
+
+test('tool results are serialized as text, keeping strings untouched', () => {
+  assert.equal(toolResultText('sunny'), 'sunny');
+  assert.equal(toolResultText(undefined), '');
+  assert.equal(toolResultText(null), '');
+  assert.equal(toolResultText(0), '0');
+  assert.equal(toolResultText(false), 'false');
+  assert.equal(toolResultText(Buffer.from('hello')), 'hello');
+  assert.equal(toolResultText([{ city: 'Madrid' }]), '[{"city":"Madrid"}]');
+  assert.equal(toolResultText({ total: 3 }), '{"total":3}');
+  assert.equal(toolResultText([{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }]), 'a\nb');
+  const cyclic = { total: 1 };
+  cyclic.self = cyclic;
+  assert.equal(typeof toolResultText(cyclic), 'string');
+});
+
+test('a node that answers in place returns text even when it resolves with an array', async () => {
+  const executor = { _execute: async () => [{ id: 1 }, { id: 2 }] };
+  const engine = createEngine({ send() {}, timeoutMs: 2000, maxToolCalls: 8, messageTimeout: 0 });
+  const [tool] = engine.langChainTools([toolNode({ owner: executor })]);
+
+  const output = await tool.invoke({ city: 'Madrid' });
+
+  assert.equal(output, '[{"id":1},{"id":2}]');
 });
 
 test('tool input is validated against the Tool JSON Schema', async () => {
@@ -248,4 +303,52 @@ const complete = [
 assert.deepEqual(pendingToolCalls(complete), []);
 assert.deepEqual(closeToolCalls(complete), []);
 assert.deepEqual(pendingToolCalls(undefined), []);
+});
+
+test('a tool result saved as an object is converted in an existing session', async () => {
+  const checkpointer = new MemorySaver();
+  const { engine, agent } = makeEngine({
+    checkpointer,
+    script: ['seeded', (messages) => new AIMessage(`saw: ${messages.at(-1).content}`)],
+  });
+  const threadId = 'thread-broken';
+  // The first run creates the thread nodes of the compiled graph; the broken messages are
+  // written over it afterwards.
+  await run(engine, agent, 'start', threadId);
+  // A memory written by an older release: the Tool returned the array and it was saved as the
+  // content of the `tool` message. The write goes straight to the checkpointer, because only
+  // nodes of the compiled graph accept updateState.
+  const threadConfig = { configurable: { thread_id: threadId } };
+  const saved = await checkpointer.getTuple(threadConfig);
+  // Messages carry their ids: the repair replaces the broken one instead of rewriting the list.
+  const messages = [
+    new HumanMessage('weather?', { id: 'human-1' }),
+    new AIMessage({ id: 'ai-1', content: '', tool_calls: [{ id: 'c1', name: 'get_weather', args: { city: 'Madrid' } }] }),
+    new ToolMessage({ id: 'tool-1', content: [{ city: 'Madrid' }], tool_call_id: 'c1', name: 'get_weather' }),
+  ];
+  const checkpoint = {
+    ...saved.checkpoint,
+    channel_values: { ...saved.checkpoint.channel_values, messages },
+    channel_versions: { ...saved.checkpoint.channel_versions, messages: 99 },
+  };
+  const ns = { configurable: { thread_id: threadId, checkpoint_ns: saved.config.configurable.checkpoint_ns, checkpoint_id: saved.checkpoint.id } };
+  await checkpointer.put(ns, checkpoint, saved.metadata, saved.metadata.versions || {});
+  const broken = await agent.getState(threadConfig);
+  assert.equal(typeof broken.values.messages.find((message) => message._getType() === 'tool').content, 'object');
+
+  const repaired = await engine.repairToolResults(agent, threadId);
+
+  assert.equal(repaired.length, 1);
+  const repairedState = await agent.getState(threadConfig);
+  const toolMessage = repairedState.values.messages.find((message) => message._getType() === 'tool');
+  assert.equal(toolMessage.content, '[{"city":"Madrid"}]');
+  assert.equal(toolMessage.tool_call_id, 'c1');
+  assert.equal(repairedState.values.messages.length, 3, 'the message is replaced, not appended');
+
+  // The conversation continues and the repaired answer is part of what the model sees.
+  const result = await run(engine, agent, 'again?', threadId);
+  assert.equal(lastAssistantText(result.messages), 'saw: again?');
+  const seen = result.messages.map((message) => message.content);
+  assert.equal(seen.includes('[{"city":"Madrid"}]'), true);
+  assert.deepEqual(await engine.repairToolResults(agent, threadId), [], 'the session is repaired once');
 });

@@ -33,6 +33,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   state when the session is used again, and the Agent shows a warning.
 - Pending tool calls are answered with a "cancelled" result before the run is aborted, so a run that
   ends on a tool step keeps a valid conversation.
+- A Tool that returns something other than a string (an array, an object, a number) no longer
+  breaks the session. The result is now sent to the model as JSON (`Buffer` values are decoded as
+  text), and an in-place tool (an MCP client or a subagent) gets the same conversion. Before, the
+  value was saved verbatim as the content of the `tool` message and every following request of that
+  session failed with *"missing field `type`"*, because the memory restored the broken message.
+- Sessions that already saved such a message are repaired when their next message arrives: the
+  content is converted once in the saved state and the Agent shows a warning.
 - **guardrails**: a custom **System prompt** no longer breaks the node. The text is now the
   *policy* and the node appends the JSON contract to it, so writing a rule in natural language
   ("no permitas faltas de respeto") no longer makes every message fail with *"The guardrail model
